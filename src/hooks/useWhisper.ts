@@ -48,7 +48,7 @@ export const useWhisper = () => {
     formData.append('audio', audioBlob, 'recording.webm');
 
     try {
-      const response = await fetch('http://localhost:8080/api/transcribe', {
+      const response = await fetch('https://tailor-backend-9ilv.onrender.com/api/transcribe', {
         method: 'POST',
         body: formData,
       });

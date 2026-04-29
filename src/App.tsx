@@ -19,7 +19,7 @@ const App: React.FC = () => {
 
   // Check backend status
   useEffect(() => {
-    fetch('http://localhost:8080/api/customers')
+    fetch('https://tailor-backend-9ilv.onrender.com/api/customers')
       .then(() => setBackendStatus('online'))
       .catch(() => setBackendStatus('offline'));
   }, [activeTab]);
@@ -81,7 +81,7 @@ const App: React.FC = () => {
     if (!customerName) return;
 
     try {
-      const response = await fetch('http://localhost:8080/api/measurements', {
+      const response = await fetch('https://tailor-backend-9ilv.onrender.com/api/measurements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

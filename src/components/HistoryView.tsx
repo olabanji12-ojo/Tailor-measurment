@@ -16,7 +16,7 @@ export const HistoryView: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/measurements')
+    fetch('https://tailor-backend-9ilv.onrender.com/api/measurements')
       .then(res => res.json())
       .then(data => {
         setSessions(data || []);
@@ -28,7 +28,7 @@ export const HistoryView: React.FC = () => {
   const handleUpdate = async () => {
     if (!selectedSession) return;
     try {
-      const response = await fetch(`http://localhost:8080/api/measurements/${selectedSession.id}`, {
+      const response = await fetch(`https://tailor-backend-9ilv.onrender.com/api/measurements/${selectedSession.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(selectedSession.data),
