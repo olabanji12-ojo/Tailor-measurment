@@ -1,48 +1,70 @@
-import type { MeasurementData } from '../types';
+/**
+ * Professional Tailor Measurement Parser
+ * Handles both "Keyword + Value" and standalone "Value" extraction.
+ */
 
-export const BODY_PARTS = [
+export const MEASUREMENT_PARTS = [
   'waist',
   'chest',
-  'bust',
   'shoulder',
-  'sleeve',
-  'neck',
   'length',
-  'hips',
+  'sleeve',
+  'arm',
+  'wrist',
+  'hip',
   'thigh',
   'inseam',
-  'outseam',
-  'cuff',
-  'wrist',
-  'armhole'
-] as const;
+  'neck'
+];
 
-export type BodyPart = typeof BODY_PARTS[number];
+export interface ParsedResult {
+  structured: Record<string, number>;
+  standaloneNumbers: number[];
+}
 
-/**
- * Parses raw text to extract body measurements.
- * Matches patterns like "waist 32", "chest: 40", "length - 45.5"
- */
-export const parseMeasurements = (text: string): MeasurementData => {
-  const measurements: MeasurementData = {};
+export const parseMeasurements = (text: string): ParsedResult => {
+  const structured: Record<string, number> = {};
+  const lowerText = text.toLowerCase();
   
-  // Normalize text: lowercase and remove extra whitespace
-  const cleanText = text.toLowerCase().trim();
-
-  BODY_PARTS.forEach((part) => {
-    // Regex explanation:
-    // (?:^|\s) - start of string or whitespace (prevents matching "long" as "on")
-    // ${part} - the keyword
-    // \s*[:\-]?\s* - optional colon/dash and whitespace
-    // (\d+(?:\.\d+)?) - capture group for number (integer or decimal)
-    const regex = new RegExp(`(?:^|\\s)${part}\\s*[:\\-]?\\s*(\\d+(?:\\.\\d+)?)`, 'gi');
-    
+  // 1. Explicit Keyword Extraction (e.g. "waist 32")
+  MEASUREMENT_PARTS.forEach(part => {
+    // Look for the part name followed by a number
+    const regex = new RegExp(`${part}\\D*(\\d+(?:\\.\\d+)?)`, 'g');
     let match;
-    // Use exec in a loop to find the LAST mention of a part (more likely to be the correction)
-    while ((match = regex.exec(cleanText)) !== null) {
-      measurements[part] = parseFloat(match[1]);
+    while ((match = regex.exec(lowerText)) !== null) {
+      structured[part] = parseFloat(match[1]);
     }
   });
 
-  return measurements;
+  // 2. Standalone Number Extraction (e.g. just "32")
+  // We want to find numbers that are NOT immediately preceded by a keyword
+  // This is tricky with regex, so we'll do a simpler approach: 
+  // Find all numbers and filter out those already captured by keywords.
+  
+  const allNumbersRegex = /(\d+(?:\.\d+)?)/g;
+  const allNumbers: { val: number; index: number }[] = [];
+  let numMatch;
+  while ((numMatch = allNumbersRegex.exec(lowerText)) !== null) {
+    allNumbers.push({ val: parseFloat(numMatch[1]), index: numMatch.index });
+  }
+
+  // Filter out numbers that belong to a keyword match
+  const keywordMatchIndices: number[] = [];
+  MEASUREMENT_PARTS.forEach(part => {
+    const regex = new RegExp(`${part}\\D*(\\d+(?:\\.\\d+)?)`, 'g');
+    let m;
+    while ((m = regex.exec(lowerText)) !== null) {
+      // Find where the number starts in this match
+      const numStr = m[1];
+      const matchStart = m.index;
+      const numStart = lowerText.indexOf(numStr, matchStart);
+      keywordMatchIndices.push(numStart);
+    }
+  });
+
+  const standaloneNumbers = allNumbers
+    .filter(n => !keywordMatchIndices.includes(n.index))
+    .map(n => n.val);
+
+  return { structured, standaloneNumbers };
 };
