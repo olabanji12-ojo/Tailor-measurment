@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { useWhisper } from './hooks/useWhisper';
 import { parseMeasurements, MEASUREMENT_PARTS } from './utils/parser';
 import { RecordingButton } from './components/RecordingButton';
 import { HistoryView } from './components/HistoryView';
 import { exportToPDF } from './utils/export';
 
 const App: React.FC = () => {
-  const { isListening, transcript, error: speechError, toggleListening, clearTranscript } = useSpeechRecognition();
+  const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
   
   const [activeTab, setActiveTab] = useState<'recorder' | 'history' | 'settings'>('recorder');
   const [finalMeasurements, setFinalMeasurements] = useState<Record<string, number>>({});
@@ -16,9 +16,6 @@ const App: React.FC = () => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-  
-  // Persistence across multiple recording sessions
-  const prevTranscriptRef = useRef('');
 
   // Check backend status
   useEffect(() => {
