@@ -5,45 +5,59 @@
 @theme {
   --color-primary: #c5a367;
   --color-primary-hover: #b38f55;
-  --color-bg-dark: #0a0a0a;
-  --color-bg-card: #141414;
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-bg-light: #f8f9fa;
+  --color-bg-card: #ffffff;
+  --color-text-main: #1a1a1a;
+  --color-border-subtle: rgba(0, 0, 0, 0.05);
 }
 
 :root {
   font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
-  background-color: #0a0a0a;
+  color-scheme: light;
+  background-color: #f8f9fa;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  background: radial-gradient(circle at top left, #1a1a1a 0%, #0a0a0a 100%);
-  color: white;
+  height: 100vh;
+  overflow: hidden;
+  background: #f8f9fa;
+  color: #1a1a1a;
+}
+
+#root {
+  height: 100%;
 }
 
 /* Animations */
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
+  from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 
-.animate-slide-up {
-  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-bottom-sheet {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.08);
 }
 
 .premium-gradient {
   background: linear-gradient(135deg, #c5a367 0%, #e5c387 50%, #c5a367 100%);
 }
 
-.mic-active-glow {
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+.nav-shadow {
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

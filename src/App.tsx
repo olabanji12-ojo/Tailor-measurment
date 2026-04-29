@@ -2,20 +2,21 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { parseMeasurements } from './utils/parser';
 import { RecordingButton } from './components/RecordingButton';
-import { MeasurementCard } from './components/MeasurementCard';
 import { HistoryView } from './components/HistoryView';
 import { exportToPDF } from './utils/export';
 
 const App: React.FC = () => {
   const { isListening, transcript, error, toggleListening, clearTranscript } = useSpeechRecognition();
   
-  const [view, setView] = useState<'recorder' | 'history'>('recorder');
+  const [activeTab, setActiveTab] = useState<'recorder' | 'history' | 'settings'>('recorder');
   const [manualMeasurements, setManualMeasurements] = useState<Record<string, number>>({});
   const [customerName, setCustomerName] = useState('');
   const [unit, setUnit] = useState<'in' | 'cm'>('in');
   const [isSaved, setIsSaved] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false); // For the Save Modal
 
+  // Load from LocalStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('tailor_session');
     if (saved) {
@@ -26,6 +27,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Save to LocalStorage whenever data changes
   useEffect(() => {
     const session = { measurements: manualMeasurements, customerName, unit };
     localStorage.setItem('tailor_session', JSON.stringify(session));
@@ -46,7 +48,12 @@ const App: React.FC = () => {
     setEditingKey(null);
   };
 
-  const handleSave = async () => {
+  const handleSaveToBackend = async () => {
+    if (!customerName) {
+      alert("Please enter a customer name first.");
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:8080/api/measurements', {
         method: 'POST',
@@ -61,21 +68,24 @@ const App: React.FC = () => {
 
       if (response.ok) {
         setIsSaved(true);
-        setTimeout(() => setIsSaved(false), 3000);
-        setManualMeasurements({});
-        setCustomerName('');
-        clearTranscript();
+        setTimeout(() => {
+          setIsSaved(false);
+          setIsSaving(false);
+          setManualMeasurements({});
+          setCustomerName('');
+          clearTranscript();
+        }, 2000);
         localStorage.removeItem('tailor_session');
       } else {
-        alert('Could not save to backend.');
+        alert('Failed to save to cloud.');
       }
     } catch (err) {
-      alert('Network error. Check console.');
+      alert('Network error. Check if the Go backend is running.');
     }
   };
 
   const clearAll = () => {
-    if (window.confirm('Clear all session data?')) {
+    if (window.confirm('Reset all data?')) {
       setManualMeasurements({});
       setCustomerName('');
       clearTranscript();
@@ -84,172 +94,151 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto min-h-screen flex flex-col py-12 px-6">
-      {/* Header Section */}
-      <header className="mb-16 flex flex-col md:flex-row justify-between items-center gap-8 animate-slide-up">
-        <div className="text-center md:text-left cursor-pointer" onClick={() => setView('recorder')}>
-          <h1 className="text-5xl font-bold tracking-tighter mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
-            TailorVoice<span className="text-primary font-light">.</span>
-          </h1>
-          <p className="text-gray-500 font-medium tracking-wide">PROFESSIONAL MEASUREMENT SUITE</p>
-        </div>
-        
-        <div className="flex items-center gap-6">
-          <nav className="flex gap-4 mr-4 border-r border-white/10 pr-6">
-            <button 
-              onClick={() => setView('recorder')}
-              className={`text-[10px] font-black tracking-widest uppercase transition-colors ${view === 'recorder' ? 'text-primary' : 'text-gray-600 hover:text-white'}`}
-            >
-              Recorder
-            </button>
-            <button 
-              onClick={() => setView('history')}
-              className={`text-[10px] font-black tracking-widest uppercase transition-colors ${view === 'history' ? 'text-primary' : 'text-gray-600 hover:text-white'}`}
-            >
-              History
-            </button>
-          </nav>
-
-          <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10">
-            {(['in', 'cm'] as const).map((u) => (
-              <button 
-                key={u}
-                onClick={() => setUnit(u)}
-                className={`px-6 py-2 text-xs rounded-xl transition-all duration-300 font-bold uppercase tracking-widest ${unit === u ? 'bg-primary text-black' : 'text-gray-500 hover:text-white'}`}
-              >
-                {u === 'in' ? 'Inches' : 'Metric'}
-              </button>
-            ))}
-          </div>
+    <div className="h-screen flex flex-col bg-bg-light text-text-main overflow-hidden font-sans relative">
+      
+      {/* Top Header */}
+      <header className="px-6 py-4 bg-white flex justify-between items-center border-b border-gray-100 z-30">
+        <h1 className="text-xl font-bold tracking-tight">
+          Tailor<span className="text-primary font-black">Voice</span>
+        </h1>
+        <div className="flex bg-gray-50 p-1 rounded-xl">
+          <button onClick={() => setUnit('in')} className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${unit === 'in' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}>IN</button>
+          <button onClick={() => setUnit('cm')} className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${unit === 'cm' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}>CM</button>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col gap-12 max-w-5xl mx-auto w-full">
-        {view === 'history' ? (
-          <HistoryView />
+      {/* Main View Area */}
+      <main className="flex-1 relative overflow-y-auto scrollbar-hide pb-24">
+        {activeTab === 'history' ? (
+          <div className="p-6">
+            <HistoryView />
+          </div>
+        ) : activeTab === 'settings' ? (
+          <div className="p-6 flex flex-col gap-6 animate-slide-up">
+             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+              <label className="text-[10px] uppercase tracking-widest text-primary font-black mb-2 block">Application Info</label>
+              <p className="text-gray-500 text-sm font-medium">TailorVoice Engine v0.1.5</p>
+              <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between items-center">
+                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Storage Status</span>
+                <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Online</span>
+              </div>
+            </div>
+            <button onClick={clearAll} className="w-full py-4 text-red-500 font-bold text-sm bg-white rounded-2xl shadow-sm border border-gray-50 hover:bg-red-50 transition-colors">Reset All Session Data</button>
+          </div>
         ) : (
-          <>
-            {/* Profile Card */}
-            <div className="glass p-10 animate-slide-up [animation-delay:100ms] group">
-              <div className="flex flex-col gap-4">
-                <label className="text-[10px] uppercase tracking-[0.3em] text-primary font-black">Active Client Profile</label>
-                <input 
-                  type="text"
-                  placeholder="Start typing client name..."
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="bg-transparent border-none p-0 text-3xl outline-none placeholder:text-gray-800 text-white font-light selection:bg-primary/30"
-                />
-                <div className="h-px w-full bg-gradient-to-r from-primary/50 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500 origin-left"></div>
+          <div className="flex flex-col h-full animate-slide-up">
+            {/* 1. TOP AREA: LIVE TRANSLATION (Per user request) */}
+            <div className="p-6">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-50 min-h-[120px] flex flex-col">
+                <label className="text-[10px] uppercase tracking-widest text-primary font-black mb-3 block">Live Translation</label>
+                <div className="flex-1 text-lg text-gray-400 font-light leading-snug">
+                  {transcript || <span className="italic opacity-30">Recording will appear here as you speak...</span>}
+                </div>
               </div>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-2xl text-sm animate-pulse flex items-center gap-3">
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                {error}
+            {/* 2. MIDDLE AREA: VOICE HUB */}
+            <div className="flex-1 flex flex-col items-center justify-center -mt-10">
+              <RecordingButton isListening={isListening} onClick={toggleListening} />
+              {error && <p className="text-red-500 text-xs mt-4 animate-pulse bg-red-50 px-3 py-1 rounded-full border border-red-100">{error}</p>}
+            </div>
+
+            {/* 3. QUICK DATA OVERVIEW (Inline, no sheet needed unless saving) */}
+            {hasData && (
+              <div className="px-6 pb-4">
+                <div className="bg-white/50 backdrop-blur-md rounded-2xl p-4 border border-white flex justify-between items-center">
+                  <div className="flex gap-4 overflow-x-auto scrollbar-hide">
+                    {Object.entries(measurements).map(([key, val]) => (
+                      <div key={key} className="flex flex-col">
+                        <span className="text-[8px] uppercase text-gray-400 font-bold">{key}</span>
+                        <span className="text-sm font-bold text-primary">{val}{unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => setIsSaving(true)}
+                    className="ml-4 bg-text-main text-white px-6 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase shadow-lg active:scale-95 transition-all"
+                  >
+                    Save Record
+                  </button>
+                </div>
               </div>
             )}
-
-            {/* Voice Hub */}
-            <div className="animate-slide-up [animation-delay:200ms]">
-              <RecordingButton isListening={isListening} onClick={toggleListening} />
-            </div>
-
-            {/* Data Grid */}
-            <div className="grid lg:grid-cols-2 gap-8 w-full animate-slide-up [animation-delay:300ms]">
-              <MeasurementCard 
-                title="Live Stream" 
-                subtitle="VOICE-TO-TEXT ENGINE"
-                action={<button onClick={clearTranscript} className="text-[10px] text-gray-500 hover:text-white tracking-widest font-bold">RESET</button>}
-              >
-                <div className="h-[200px] lg:h-[300px] overflow-y-auto text-xl text-gray-400 font-light leading-relaxed selection:bg-primary/20 scrollbar-hide">
-                  {transcript || <span className="text-gray-800 italic">Waiting for voice input...</span>}
-                </div>
-              </MeasurementCard>
-
-              <MeasurementCard 
-                title="Extraction" 
-                subtitle={`STRUCTURED DATA (${unit.toUpperCase()})`}
-                action={<span className="text-[10px] text-primary font-bold">TAP VALUE TO EDIT</span>}
-              >
-                <div className="h-[200px] lg:h-[300px] overflow-y-auto scrollbar-hide">
-                  {!hasData ? (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-800 gap-3">
-                      <svg className="w-8 h-8 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                      </svg>
-                      <p className="italic text-sm">No measurements detected</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {Object.entries(measurements).map(([key, value]) => (
-                        <div key={key} className="flex justify-between items-center py-4 border-b border-white/5 hover:bg-white/[0.02] transition-colors px-2 rounded-lg">
-                          <span className="capitalize text-sm text-gray-300 font-medium tracking-wide">{key}</span>
-                          {editingKey === key ? (
-                            <input
-                              autoFocus
-                              className="w-20 bg-primary/20 text-right outline-none rounded-lg px-3 py-1 text-primary font-bold border border-primary/30"
-                              defaultValue={value}
-                              onBlur={(e) => handleManualEdit(key, e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleManualEdit(key, (e.target as HTMLInputElement).value)}
-                            />
-                          ) : (
-                            <button 
-                              onClick={() => setEditingKey(key)}
-                              className="font-mono text-primary text-2xl font-light hover:scale-110 transition-transform origin-right"
-                            >
-                              {value}<span className="text-xs ml-1 opacity-40 font-sans">{unit}</span>
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </MeasurementCard>
-            </div>
-
-            {/* Action Center */}
-            <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-8 animate-slide-up [animation-delay:400ms] pb-20">
-              <button onClick={clearAll} className="text-[10px] font-black tracking-[0.4em] text-gray-700 hover:text-red-500 transition-colors uppercase">
-                Clear Active Session
-              </button>
-              
-              <div className="flex gap-4">
-                {hasData && customerName && (
-                   <button
-                    onClick={() => exportToPDF(customerName, measurements, unit)}
-                    className="px-8 py-5 rounded-2xl font-black text-xs tracking-[0.3em] uppercase transition-all duration-500 border border-white/10 text-gray-400 hover:text-white hover:border-white/20"
-                  >
-                    Quick Export (PDF)
-                  </button>
-                )}
-                
-                <button
-                  disabled={!hasData || isListening || !customerName}
-                  onClick={handleSave}
-                  className={`
-                    group relative px-16 py-5 rounded-2xl font-black text-xs tracking-[0.3em] uppercase transition-all duration-500
-                    ${hasData && !isListening && customerName
-                      ? 'bg-white text-black hover:bg-primary shadow-[0_20px_50px_rgba(255,255,255,0.1)] hover:-translate-y-1'
-                      : 'bg-gray-900 text-gray-700 cursor-not-allowed border border-white/5'
-                    }
-                  `}
-                >
-                  <span className="relative z-10">{isSaved ? '✓ Archive Secured' : 'Archive Measurements'}</span>
-                  {hasData && customerName && <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:opacity-100 opacity-0 transition-opacity rounded-2xl"></div>}
-                </button>
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </main>
 
-      <footer className="py-8 border-t border-white/5 text-center flex flex-col gap-2">
-        <p className="text-[10px] text-gray-700 font-bold tracking-[0.5em] uppercase">Built for Modern Ateliers</p>
-        <p className="text-[9px] text-gray-800">TailorVoice Engine &copy; 2024 &bull; Technical Alpha v0.1.2</p>
-      </footer>
+      {/* Save Modal (OPay style confirmation) */}
+      {isSaving && (
+        <div className="absolute inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !isSaved && setIsSaving(false)}></div>
+          <div className="bg-white w-full rounded-t-[40px] p-10 flex flex-col gap-6 animate-bottom-sheet z-50">
+            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-2"></div>
+            
+            <div className="text-center">
+              <h3 className="text-2xl font-bold tracking-tight">Finalize & Archive</h3>
+              <p className="text-gray-400 text-sm mt-1">Please enter a name for this measurement record.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-[10px] uppercase tracking-widest text-primary font-black mb-2 block">Client Name</label>
+              <input 
+                autoFocus
+                type="text"
+                placeholder="Ex: John Doe"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full bg-gray-50 border-b-2 border-primary/20 py-4 text-2xl outline-none focus:border-primary transition-colors font-medium text-center"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <button 
+                onClick={() => exportToPDF(customerName || 'Client', measurements, unit)}
+                className="py-5 rounded-2xl border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-500"
+              >
+                Download PDF
+              </button>
+              <button 
+                onClick={handleSaveToBackend}
+                disabled={!customerName || isSaved}
+                className={`py-5 rounded-2xl font-black text-[10px] tracking-widest uppercase transition-all ${customerName && !isSaved ? 'bg-primary text-black shadow-xl shadow-primary/20' : 'bg-gray-100 text-gray-400'}`}
+              >
+                {isSaved ? '✓ SAVED' : 'CONFIRM SAVE'}
+              </button>
+            </div>
+            
+            {!isSaved && (
+              <button onClick={() => setIsSaving(false)} className="text-[10px] text-gray-400 font-bold tracking-widest uppercase text-center mt-2">Cancel</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Navigation (OPay Style) */}
+      <nav className="bg-white border-t border-gray-100 px-10 py-6 flex justify-between items-center nav-shadow z-40 relative">
+        <button onClick={() => setActiveTab('recorder')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'recorder' ? 'text-primary scale-110' : 'text-gray-300 hover:text-gray-400'}`}>
+          <svg className="w-6 h-6" fill={activeTab === 'recorder' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+          <span className="text-[10px] font-bold tracking-tighter">Recorder</span>
+        </button>
+        
+        <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-gray-300 hover:text-gray-400'}`}>
+          <svg className="w-6 h-6" fill={activeTab === 'history' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-[10px] font-bold tracking-tighter">Archive</span>
+        </button>
+
+        <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'settings' ? 'text-primary scale-110' : 'text-gray-300 hover:text-gray-400'}`}>
+          <svg className="w-6 h-6" fill={activeTab === 'settings' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span className="text-[10px] font-bold tracking-tighter">Settings</span>
+        </button>
+      </nav>
     </div>
   );
 };
