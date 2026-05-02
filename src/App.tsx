@@ -478,9 +478,9 @@ const App: React.FC = () => {
 
       {/* Save Modal */}
       {isSaving && (
-        <div className="absolute inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isSaved && setIsSaving(false)}></div>
-          <div className="bg-white w-full rounded-t-[48px] p-10 flex flex-col gap-6 animate-bottom-sheet z-50 shadow-2xl max-h-[95vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-white w-full rounded-t-[48px] p-10 flex flex-col gap-6 animate-bottom-sheet z-[110] shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar pb-20">
             <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto"></div>
             <div className="text-center">
               <h3 className="text-2xl font-black">Archive Record</h3>
@@ -545,7 +545,7 @@ const App: React.FC = () => {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="bg-white border-t border-gray-50 px-10 py-6 flex justify-between items-center z-50 relative">
+      <nav className={`bg-white border-t border-gray-50 px-10 py-6 flex justify-between items-center z-50 relative ${isSaving ? 'hidden' : ''}`}>
         <button onClick={() => setActiveNav('recorder')} className={`flex flex-col items-center gap-1.5 transition-all ${activeNav === 'recorder' ? 'text-primary scale-110' : 'text-gray-300'}`}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           <span className="text-[9px] font-black uppercase">Recorder</span>
