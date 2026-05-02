@@ -22,7 +22,7 @@ const App: React.FC = () => {
 
   const { shopName, saveShopName, isSetup } = useShopIdentity();
   const [shopInput, setShopInput] = useState('');
-  const { getLabel, renameLabel, resetLabel, resetAllLabels, findPartByLabel, hasCustomLabel, customLabels, customParts, allParts, addCustomPart, removeCustomPart } = useLabels();
+  const { getLabel, renameLabel, resetLabel, resetAllLabels, findPartByLabel, hasCustomLabel, customLabels, allParts, addCustomPart, removeCustomPart } = useLabels();
 
   // NumPad state
   const [numPadPart, setNumPadPart] = useState<string | null>(null);
