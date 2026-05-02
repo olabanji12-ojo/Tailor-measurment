@@ -211,6 +211,36 @@ const App: React.FC = () => {
           <div className="p-6"><HistoryView shopName={shopName} /></div>
         ) : activeNav === 'settings' ? (
           <div className="p-6 space-y-6">
+            {/* Shop Identity Section */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Shop Identity</h3>
+                <span className="text-[8px] font-black bg-primary/10 text-primary px-2 py-1 rounded-full uppercase">Pilot Profile</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-xl shadow-inner">🏬</div>
+                <div className="flex-1">
+                  {renamingPart === 'SHOP_NAME' ? (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        value={renameInput}
+                        onChange={e => setRenameInput(e.target.value)}
+                        onBlur={() => { if (renameInput.trim()) saveShopName(renameInput); setRenamingPart(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { if (renameInput.trim()) saveShopName(renameInput); setRenamingPart(null); } }}
+                        className="flex-1 bg-gray-50 px-3 py-1.5 rounded-lg text-sm font-bold border border-primary/20 outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-gray-900">{shopName}</span>
+                      <button onClick={() => { setRenamingPart('SHOP_NAME'); setRenameInput(shopName); }} className="text-[10px] font-bold text-primary uppercase tracking-widest text-left mt-0.5">Rename Shop</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">System Status</h3>
               <div className="flex justify-between items-center">
@@ -393,10 +423,10 @@ const App: React.FC = () => {
                       <div
                         key={part}
                         onClick={() => handleCardTap(part)}
-                        className={`px-6 py-4 flex justify-between items-center transition-all duration-200 ${
+                        className={`px-6 py-4 flex justify-between items-center transition-all duration-200 cursor-pointer ${
                           isFocused ? 'bg-primary/5' :
                           isManualActive ? 'bg-primary/10' :
-                          inputMode === 'manual' ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100' : ''
+                          'hover:bg-gray-50 active:bg-gray-100'
                         }`}
                       >
                         {/* Option 1: Double-tap label to rename inline */}
