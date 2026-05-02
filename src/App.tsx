@@ -4,7 +4,7 @@ import { parseMeasurements, MEASUREMENT_PARTS } from './utils/parser';
 import { RecordingButton } from './components/RecordingButton';
 import { HistoryView } from './components/HistoryView';
 import { NumPad } from './components/NumPad';
-import { exportToPDF } from './utils/export';
+import { exportToImage } from './utils/export';
 import { useLabels } from './hooks/useLabels';
 import { useShopIdentity } from './hooks/useShopIdentity';
 
@@ -522,7 +522,7 @@ const App: React.FC = () => {
             </div>
             <input autoFocus type="text" placeholder="Customer Name..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-gray-50 border-b-4 border-primary/20 py-4 text-3xl outline-none focus:border-primary transition-colors font-bold text-center" />
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => exportToPDF(customerName || 'Client', finalMeasurements, unit)} className="py-5 rounded-3xl border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-400">PDF</button>
+              <button onClick={() => exportToImage('measurement-sheet', customerName || 'Client')} className="py-5 rounded-3xl border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-400">Share Image</button>
               <button onClick={handleSaveToBackend} disabled={!customerName || isSaved} className={`py-5 rounded-3xl font-black text-[10px] tracking-widest uppercase ${customerName && !isSaved ? 'bg-primary text-black' : 'bg-gray-100 text-gray-300'}`}>
                 {isSaved ? '✓ DONE' : 'SAVE CLOUD'}
               </button>
@@ -559,6 +559,51 @@ const App: React.FC = () => {
           <span className="text-[9px] font-black uppercase">Settings</span>
         </button>
       </nav>
+      {/* Hidden Measurement Sheet for Image Capture */}
+      <div className="fixed -left-[9999px] top-0">
+        <div id="measurement-sheet" className="w-[400px] bg-white p-10 font-sans text-[#1A1A1A]">
+          <div className="flex flex-col items-center mb-10 text-center">
+            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-black tracking-tighter uppercase mb-1">{shopName || 'TailorVoice'}</h1>
+            <p className="text-[10px] font-black tracking-[0.2em] text-gray-400 uppercase">Measurement Sheet</p>
+          </div>
+
+          <div className="space-y-6 mb-10">
+            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Client</span>
+              <span className="text-xl font-bold text-primary">{customerName || '________________'}</span>
+            </div>
+            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Date</span>
+              <span className="text-sm font-bold">{new Date().toLocaleDateString()}</span>
+            </div>
+            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Unit</span>
+              <span className="text-sm font-bold uppercase">{unit}</span>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-[32px] p-6 space-y-4">
+            {allParts.map(part => (
+              <div key={part} className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{getLabel(part)}</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black text-gray-800">{finalMeasurements[part] || '0'}</span>
+                  <span className="text-[9px] font-bold text-gray-300 uppercase">{unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <p className="text-[9px] font-black text-gray-200 uppercase tracking-widest">Built with TailorVoice AI 🧵</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

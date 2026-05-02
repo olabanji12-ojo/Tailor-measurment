@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { exportToPDF } from '../utils/export';
+import { exportToImage } from '../utils/export';
 
 interface MeasurementSession {
   id: string;
@@ -252,7 +252,7 @@ export const HistoryView: React.FC<Props> = ({ shopName }) => {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-4 pt-4">
-                <button onClick={() => exportToPDF(selectedSession.customer_name, selectedSession.data, selectedSession.unit)} className="py-5 rounded-[28px] border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-400">PDF Download</button>
+                <button onClick={() => exportToImage('history-measurement-sheet', selectedSession.customer_name)} className="py-5 rounded-[28px] border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-400">Share Image</button>
                 {isEditing ? (
                   <button onClick={handleUpdateValues} className="py-5 rounded-[28px] bg-primary text-black font-black text-[10px] tracking-widest uppercase shadow-xl">Save Changes</button>
                 ) : (
@@ -268,6 +268,52 @@ export const HistoryView: React.FC<Props> = ({ shopName }) => {
               </button>
             </div>
             {/* Scrollable Container END */}
+          </div>
+          
+          {/* Hidden Measurement Sheet for Image Capture (Scoped to History) */}
+          <div className="fixed -left-[9999px] top-0">
+            <div id="history-measurement-sheet" className="w-[400px] bg-white p-10 font-sans text-[#1A1A1A]">
+              <div className="flex flex-col items-center mb-10 text-center">
+                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                  <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </div>
+                <h1 className="text-2xl font-black tracking-tighter uppercase mb-1">{shopName || 'TailorVoice'}</h1>
+                <p className="text-[10px] font-black tracking-[0.2em] text-gray-400 uppercase">Archive Record</p>
+              </div>
+
+              <div className="space-y-6 mb-10">
+                <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Client</span>
+                  <span className="text-xl font-bold text-primary">{selectedSession.customer_name}</span>
+                </div>
+                <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Date Saved</span>
+                  <span className="text-sm font-bold">{new Date(selectedSession.date).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Unit</span>
+                  <span className="text-sm font-bold uppercase">{selectedSession.unit}</span>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-[32px] p-6 space-y-4">
+                {Object.entries(selectedSession.data).map(([key, val]) => (
+                  <div key={key} className="flex justify-between items-center">
+                    <span className="capitalize text-[10px] font-black text-gray-400 uppercase tracking-widest">{key}</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-black text-gray-800">{val}</span>
+                      <span className="text-[9px] font-bold text-gray-300 uppercase">{selectedSession.unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-12 text-center">
+                <p className="text-[9px] font-black text-gray-200 uppercase tracking-widest">Built with TailorVoice AI 🧵</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
