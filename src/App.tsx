@@ -545,7 +545,7 @@ const App: React.FC = () => {
       )}
 
       {/* Bottom Navigation */}
-      <nav className={`bg-white border-t border-gray-50 px-10 py-6 flex justify-between items-center z-50 relative ${isSaving ? 'hidden' : ''}`}>
+      <nav className={`bg-white border-t border-gray-50 px-10 pt-6 pb-10 flex justify-between items-center z-50 relative ${isSaving ? 'hidden' : ''}`} style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
         <button onClick={() => setActiveNav('recorder')} className={`flex flex-col items-center gap-1.5 transition-all ${activeNav === 'recorder' ? 'text-primary scale-110' : 'text-gray-300'}`}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           <span className="text-[9px] font-black uppercase">Recorder</span>

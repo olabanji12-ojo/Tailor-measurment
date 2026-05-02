@@ -19,9 +19,15 @@
 body {
   margin: 0;
   height: 100vh;
+  height: -webkit-fill-available;
   overflow: hidden;
   background: #f8f9fa;
   color: #1a1a1a;
+  /* Support for notched phones */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #root {
