@@ -590,8 +590,8 @@ const App: React.FC = () => {
         </button>
       </nav>
       {/* Hidden Measurement Sheet for Image Capture */}
-      <div className="fixed -left-[9999px] top-0">
-        <div id="measurement-sheet" className="w-[400px] bg-white p-10 font-sans text-[#1A1A1A]">
+      <div className="fixed -z-50 opacity-0 pointer-events-none left-0 top-0">
+        <div id="measurement-sheet" className="w-[400px] bg-white p-10 font-sans text-[#1A1A1A] border-8 border-primary/10">
           <div className="flex flex-col items-center mb-10 text-center">
             <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
               <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

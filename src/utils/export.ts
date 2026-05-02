@@ -8,9 +8,8 @@ export const exportToImage = async (elementId: string, fileName: string) => {
     const dataUrl = await toPng(node, { 
       quality: 0.95,
       backgroundColor: '#FDFDFD',
-      style: {
-        borderRadius: '0px'
-      }
+      pixelRatio: 2, // Good balance of quality/speed
+      cacheBust: true,
     });
     
     const link = document.createElement('a');
