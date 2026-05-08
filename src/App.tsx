@@ -68,12 +68,14 @@ const AppContent: React.FC = () => {
     const hasSeenOnboarding = localStorage.getItem('tailor_onboarded');
     
     return (
-      <Routes>
-        {!hasSeenOnboarding && <Route path="/" element={<OnboardingScreen />} />}
-        <Route path="/signup" element={<SignupScreen />} />
-        <Route path="/login" element={<LoginScreen />} />
-        <Route path="*" element={hasSeenOnboarding ? <LoginScreen /> : <OnboardingScreen />} />
-      </Routes>
+      <div className="h-screen overflow-y-auto custom-scrollbar">
+        <Routes>
+          {!hasSeenOnboarding && <Route path="/" element={<OnboardingScreen />} />}
+          <Route path="/signup" element={<SignupScreen />} />
+          <Route path="/login" element={<LoginScreen />} />
+          <Route path="*" element={hasSeenOnboarding ? <LoginScreen /> : <OnboardingScreen />} />
+        </Routes>
+      </div>
     );
   }
 

@@ -26,7 +26,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0F172A] px-6 py-12 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F172A] px-6 py-12 relative">
       {/* Decorative Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px]"></div>

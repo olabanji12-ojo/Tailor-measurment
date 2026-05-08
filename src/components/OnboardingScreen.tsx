@@ -77,7 +77,7 @@ export const OnboardingScreen: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 mt-[-40px] bg-white rounded-t-[40px] relative z-10 p-10 flex flex-col shadow-2xl">
+      <div className="flex-1 mt-[-40px] bg-white rounded-t-[40px] relative z-10 p-10 flex flex-col shadow-2xl overflow-y-auto custom-scrollbar">
         <div className="flex gap-2 mb-8 justify-center">
           {slides.map((_, i) => (
             <div 
