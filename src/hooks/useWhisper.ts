@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export const useWhisper = () => {
+  const { token } = useAuth();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +50,11 @@ export const useWhisper = () => {
     formData.append('audio', audioBlob, 'recording.webm');
 
     try {
-      const response = await fetch('https://tailor-backend-9ilv.onrender.com/api/transcribe', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/transcribe`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 

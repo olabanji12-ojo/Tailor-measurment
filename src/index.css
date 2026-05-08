@@ -1,19 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #c5a367;
-  --color-primary-hover: #b38f55;
-  --color-bg-light: #f8f9fa;
-  --color-bg-card: #ffffff;
-  --color-text-main: #1a1a1a;
+  --color-primary: #0F172A; /* Deep Navy */
+  --color-accent: #D4AF37; /* Muted Gold */
+  --color-bg-light: #FDFDFD; /* Alabaster Off-white */
+  --color-bg-secondary: #F8F9FA; /* Soft Grey for cards/inputs */
+  --color-text-main: #111827; /* Near Black */
+  --color-text-muted: #6B7280; /* Cool Grey */
   --color-border-subtle: rgba(0, 0, 0, 0.05);
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Playfair Display', serif;
 }
 
 :root {
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   color-scheme: light;
-  background-color: #f8f9fa;
+  background-color: var(--color-bg-light);
 }
 
 body {

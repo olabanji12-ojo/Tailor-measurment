@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --ink:#0d0d0d;
+  --ink2:#3a3a3a;
+  --ink3:#6b6b6b;
+  --rule:rgba(0,0,0,0.1);
+  --accent:#c8410f;
+  --accent2:#1a4d8f;
+  --gold:#b8930a;
+  --surface:#fafaf7;
+  --card:#ffffff;
+  --chaos:#c8410f;
+  --control:#1a4d8f;
+}
+
+@media(prefers-color-scheme:dark){
+  :root{
+    --ink:#f0ede8;
+    --ink2:#c8c4bc;
+    --ink3:#908c84;
+    --rule:rgba(255,255,255,0.1);
+    --surface:#111110;
+    --card:#1c1b19;
+  }
+}
+
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--surface);
+  color:var(--ink);
+  padding:0;
+  font-size:14px;
+  line-height:1.7;
+}
+
+.doc{
+  max-width:780px;
+  margin:0 auto;
+  padding:48px 40px 80px;
+}
+
+/* MASTHEAD */
+.masthead{
+  border-bottom:1.5px solid var(--ink);
+  padding-bottom:32px;
+  margin-bottom:48px;
+}
+
+.studio-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:.14em;
+  color:var(--ink3);
+  text-transform:uppercase;
+  margin-bottom:16px;
+}
+
+.doc-title{
+  font-family:'Playfair Display',serif;
+  font-size:38px;
+  font-weight:700;
+  line-height:1.15;
+  color:var(--ink);
+  margin-bottom:8px;
+}
+
+.doc-subtitle{
+  font-family:'Inter',sans-serif;
+  font-size:16px;
+  font-weight:300;
+  color:var(--ink2);
+  letter-spacing:.02em;
+}
+
+.meta-row{
+  display:flex;
+  gap:32px;
+  margin-top:24px;
+  flex-wrap:wrap;
+}
+
+.meta-item{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.meta-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.12em;
+  color:var(--ink3);
+  text-transform:uppercase;
+}
+
+.meta-value{
+  font-size:13px;
+  font-weight:500;
+  color:var(--ink);
+}
+
+/* TOC */
+.toc{
+  background:var(--card);
+  border:0.5px solid var(--rule);
+  border-left:3px solid var(--accent);
+  border-radius:0 8px 8px 0;
+  padding:20px 24px;
+  margin-bottom:48px;
+}
+
+.toc-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.14em;
+  color:var(--ink3);
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+
+.toc-list{
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.toc-list li{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.toc-num{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--accent);
+  min-width:20px;
+}
+
+.toc-text{
+  font-size:13px;
+  font-weight:500;
+  color:var(--ink2);
+}
+
+/* SECTIONS */
+.section{
+  margin-bottom:56px;
+}
+
+.section-header{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:24px;
+  padding-bottom:12px;
+  border-bottom:0.5px solid var(--rule);
+}
+
+.section-num{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  font-weight:500;
+  color:var(--accent);
+  letter-spacing:.06em;
+  padding-top:6px;
+  min-width:28px;
+}
+
+.section-title{
+  font-family:'Playfair Display',serif;
+  font-size:22px;
+  font-weight:700;
+  color:var(--ink);
+  line-height:1.2;
+}
+
+/* PROSE */
+.prose{
+  font-size:14px;
+  line-height:1.8;
+  color:var(--ink2);
+}
+
+.prose + .prose{
+  margin-top:14px;
+}
+
+/* CALLOUT */
+.callout{
+  background:var(--card);
+  border:0.5px solid var(--rule);
+  border-radius:8px;
+  padding:20px 22px;
+  margin:20px 0;
+}
+
+.callout-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.12em;
+  color:var(--ink3);
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+
+/* CHAOS / CONTROL PALETTE */
+.palette-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin:20px 0;
+}
+
+.palette-card{
+  border-radius:10px;
+  padding:20px;
+  border:0.5px solid var(--rule);
+}
+
+.palette-chaos{
+  background:rgba(200,65,15,0.06);
+  border-left:4px solid var(--chaos);
+}
+
+.palette-control{
+  background:rgba(26,77,143,0.06);
+  border-left:4px solid var(--control);
+}
+
+.palette-tag{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  margin-bottom:10px;
+  font-weight:500;
+}
+
+.palette-chaos .palette-tag{color:var(--chaos)}
+.palette-control .palette-tag{color:var(--control)}
+
+.palette-card ul{
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.palette-card ul li{
+  font-size:13px;
+  color:var(--ink2);
+  padding-left:12px;
+  position:relative;
+}
+
+.palette-card ul li::before{
+  content:'—';
+  position:absolute;
+  left:0;
+  color:var(--ink3);
+  font-size:10px;
+}
+
+/* CHARACTER CARDS */
+.char-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:16px;
+  margin:20px 0;
+}
+
+.char-card{
+  background:var(--card);
+  border:0.5px solid var(--rule);
+  border-radius:10px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.char-avatar{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  font-weight:600;
+  font-family:'Playfair Display',serif;
+}
+
+.char-hero .char-avatar{background:rgba(26,77,143,0.12);color:var(--control)}
+.char-male .char-avatar{background:rgba(200,65,15,0.1);color:var(--chaos)}
+.char-female .char-avatar{background:rgba(184,147,10,0.1);color:var(--gold)}
+
+.char-name{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
+}
+
+.char-role{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  margin-bottom:2px;
+}
+
+.char-hero .char-role{color:var(--control)}
+.char-male .char-role{color:var(--chaos)}
+.char-female .char-role{color:var(--gold)}
+
+.char-desc{
+  font-size:12px;
+  color:var(--ink3);
+  line-height:1.6;
+}
+
+.char-trait{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:4px;
+  font-size:11px;
+  font-weight:500;
+  margin:2px 2px 0 0;
+}
+
+.char-hero .char-trait{background:rgba(26,77,143,0.1);color:var(--control)}
+.char-male .char-trait{background:rgba(200,65,15,0.1);color:var(--chaos)}
+.char-female .char-trait{background:rgba(184,147,10,0.1);color:var(--gold)}
+
+/* EPISODE BLOCKS */
+.ep-block{
+  background:var(--card);
+  border:0.5px solid var(--rule);
+  border-radius:10px;
+  overflow:hidden;
+  margin:16px 0;
+}
+
+.ep-header{
+  padding:14px 20px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  border-bottom:0.5px solid var(--rule);
+}
+
+.ep-badge{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.12em;
+  font-weight:500;
+  padding:4px 10px;
+  border-radius:4px;
+  text-transform:uppercase;
+}
+
+.ep-intro .ep-badge{background:rgba(184,147,10,0.12);color:var(--gold)}
+.ep-teaser .ep-badge{background:rgba(80,0,80,0.08);color:#7a2d8a}
+.ep-one .ep-badge{background:rgba(200,65,15,0.1);color:var(--chaos)}
+.ep-two .ep-badge{background:rgba(26,77,143,0.1);color:var(--control)}
+.ep-three .ep-badge{background:rgba(20,120,60,0.1);color:#1a6b3c}
+
+.ep-title{
+  font-size:15px;
+  font-weight:600;
+  color:var(--ink);
+}
+
+.ep-tone{
+  font-size:11px;
+  color:var(--ink3);
+  margin-left:auto;
+  font-style:italic;
+}
+
+.ep-body{
+  padding:16px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.ep-row{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:12px;
+  align-items:start;
+}
+
+.ep-key{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.1em;
+  color:var(--ink3);
+  text-transform:uppercase;
+  padding-top:2px;
+}
+
+.ep-val{
+  font-size:13px;
+  color:var(--ink2);
+  line-height:1.6;
+}
+
+/* SCENE MOMENTS */
+.moments-grid{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin:16px 0;
+}
+
+.moment-row{
+  display:grid;
+  grid-template-columns:28px 1fr;
+  gap:14px;
+  align-items:start;
+}
+
+.moment-icon{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  flex-shrink:0;
+}
+
+.moment-chaos .moment-icon{background:rgba(200,65,15,0.1)}
+.moment-enter .moment-icon{background:rgba(26,77,143,0.1)}
+.moment-transform .moment-icon{background:rgba(184,147,10,0.1)}
+
+.moment-content{}
+.moment-title{
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:3px;
+}
+.moment-desc{
+  font-size:12px;
+  color:var(--ink3);
+  line-height:1.6;
+}
+
+/* PRODUCTION STEPS */
+.steps-list{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  margin:16px 0;
+}
+
+.step-item{
+  display:grid;
+  grid-template-columns:32px 1fr;
+  gap:16px;
+  padding:14px 0;
+  border-bottom:0.5px solid var(--rule);
+  align-items:start;
+}
+.step-item:last-child{border-bottom:none}
+
+.step-n{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  font-weight:500;
+  color:var(--accent);
+  padding-top:2px;
+}
+
+.step-title{
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:4px;
+}
+
+.step-desc{
+  font-size:12px;
+  color:var(--ink3);
+  line-height:1.6;
+}
+
+/* BRAND FINALE */
+.brand-finale{
+  background:var(--ink);
+  color:#f0ede8;
+  border-radius:12px;
+  padding:36px;
+  text-align:center;
+  margin-top:20px;
+}
+
+.brand-tagline{
+  font-family:'Playfair Display',serif;
+  font-size:28px;
+  font-weight:700;
+  color:#ffffff;
+  letter-spacing:.03em;
+  margin-bottom:10px;
+}
+
+.brand-sub{
+  font-size:13px;
+  color:rgba(240,237,232,0.6);
+  max-width:420px;
+  margin:0 auto;
+  line-height:1.7;
+}
+
+/* COLOR TRANSITION VISUAL */
+.transition-bar{
+  height:6px;
+  border-radius:3px;
+  background:linear-gradient(to right,#c8410f,#c87a1a,#1a4d8f);
+  margin:16px 0 8px;
+}
+
+.transition-labels{
+  display:flex;
+  justify-content:space-between;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--ink3);
+  letter-spacing:.08em;
+}
+
+/* DIVIDER */
+.divider{
+  border:none;
+  border-top:0.5px solid var(--rule);
+  margin:32px 0;
+}
+
+/* FOOTER */
+.footer{
+  margin-top:64px;
+  padding-top:20px;
+  border-top:0.5px solid var(--rule);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.footer-brand{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--ink3);
+  letter-spacing:.1em;
+}
+
+.footer-status{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--accent);
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+@media(max-width:600px){
+  .doc{padding:28px 20px 60px}
+  .char-grid{grid-template-columns:1fr}
+  .palette-row{grid-template-columns:1fr}
+  .ep-row{grid-template-columns:1fr;gap:4px}
+  .ep-key{display:none}
+}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<!-- MASTHEAD -->
+<div class="masthead">
+  <div class="studio-label">Creative Production Brief — Confidential</div>
+  <div class="doc-title">Brooks Automation<br>Animated Brand Series</div>
+  <div class="doc-subtitle">Concept &amp; Execution Plan for a Stylized 3D Animation Series</div>
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">Project Type</span>
+      <span class="meta-value">3D Animated Series (Pixar-style)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Format</span>
+      <span class="meta-value">Teaser + Multi-Episode Arc</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Brand Message</span>
+      <span class="meta-value">"Sound Systems. Sound Engineering."</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Target Audience</span>
+      <span class="meta-value">Technical &amp; Non-Technical</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ul class="toc-list">
+    <li><span class="toc-num">01</span><span class="toc-text">Project Overview</span></li>
+    <li><span class="toc-num">02</span><span class="toc-text">Story World &amp; Visual Direction</span></li>
+    <li><span class="toc-num">03</span><span class="toc-text">Character Breakdown</span></li>
+    <li><span class="toc-num">04</span><span class="toc-text">Series Structure &amp; Episode Guide</span></li>
+    <li><span class="toc-num">05</span><span class="toc-text">Key Cinematic Moments</span></li>
+    <li><span class="toc-num">06</span><span class="toc-text">Production Approach (AI-Based)</span></li>
+    <li><span class="toc-num">07</span><span class="toc-text">Brand Integration</span></li>
+  </ul>
+</div>
+
+<!-- SECTION 01 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">01</div>
+    <div class="section-title">Project Overview</div>
+  </div>
+  <p class="prose">
+    This project is a stylized 3D animated brand series for <strong>Brooks Automation</strong> — a company specialising in industrial automation technologies including PLC systems, SCADA solutions, and process optimisation. Rather than communicating the value of these services through technical explanation or corporate presentation, this series takes a storytelling-first approach.
+  </p>
+  <p class="prose" style="margin-top:14px">
+    The central narrative follows a modern industrial environment in crisis — overwhelmed workers, failing systems, and mounting inefficiency. Into this world arrives <strong>Amina Brooks</strong>, a calm and confident automation expert whose presence transforms chaos into precision. The story is designed to resonate emotionally with both technical decision-makers who understand the underlying systems and everyday audiences who simply recognise the relief of things finally working.
+  </p>
+  <div class="callout" style="margin-top:20px">
+    <div class="callout-label">Core Creative Principle</div>
+    <p style="font-size:14px;color:var(--ink2);line-height:1.7">The series does not explain automation — it <em>shows the feeling</em> of it. Every design decision, from color palette to character posture, should serve the emotional arc from <span style="color:var(--chaos);font-weight:600">disorder</span> to <span style="color:var(--control);font-weight:600">control</span>.</p>
+  </div>
+  <p class="prose" style="margin-top:16px">
+    The visual style draws from Pixar's tradition of stylized realism — expressive characters with weight and personality, environments that feel lived-in and real, and lighting that does storytelling work. This is not a cartoon; it is a cinematic animated series that happens to carry a brand message.
+  </p>
+</div>
+
+<!-- SECTION 02 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">02</div>
+    <div class="section-title">Story World &amp; Visual Direction</div>
+  </div>
+
+  <p class="prose">The series is set entirely within a single industrial compound comprising two primary spaces: a <strong>control room</strong> and the connected <strong>factory floor</strong>. Together, these two locations form the complete visual world — and the transformation of these spaces is the story.</p>
+
+  <div class="callout" style="margin-top:20px;margin-bottom:20px">
+    <div class="callout-label">Environment 1 — The Control Room</div>
+    <p style="font-size:13px;color:var(--ink2);line-height:1.7">A large, glass-walled operations centre overlooking the factory floor. Banks of monitors, SCADA dashboards, status panels, and control terminals line the walls. In the chaos phase, this room feels cluttered — papers everywhere, monitors showing error warnings in red, workers hunched over keyboards with no clear system. In the control phase, it becomes a zen-like command centre: every screen has a purpose, every light glows the right color, and there is breathing room in the space itself.</p>
+  </div>
+
+  <div class="callout" style="margin-bottom:20px">
+    <div class="callout-label">Environment 2 — The Factory Floor</div>
+    <p style="font-size:13px;color:var(--ink2);line-height:1.7">The factory is the physical consequence of decisions made in the control room. It houses conveyor belts, hydraulic machinery, assembly lines, and storage systems. In chaos, machines jam, items pile up, and workers scramble. After transformation, the factory moves like a choreographed sequence — smooth, rhythmic, and precise.</p>
+  </div>
+
+  <div class="palette-row">
+    <div class="palette-card palette-chaos">
+      <div class="palette-tag">Chaos Phase — Visual Language</div>
+      <ul>
+        <li>Dominant reds, oranges, and harsh yellows</li>
+        <li>Flickering and strobing lighting effects</li>
+        <li>Screens showing error states and alarms</li>
+        <li>Cluttered, asymmetric compositions</li>
+        <li>Handheld-style camera movement (restless)</li>
+        <li>Sound design: alarms, clanging, frantic voices</li>
+      </ul>
+    </div>
+    <div class="palette-card palette-control">
+      <div class="palette-tag">Control Phase — Visual Language</div>
+      <ul>
+        <li>Dominant blues, teals, and clean whites</li>
+        <li>Steady, warm ambient lighting</li>
+        <li>Screens showing live data, smooth dashboards</li>
+        <li>Ordered, symmetrical compositions</li>
+        <li>Smooth cinematic camera movement (confident)</li>
+        <li>Sound design: gentle hums, rhythmic precision</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">Color Transition Arc</div>
+    <div class="transition-bar"></div>
+    <div class="transition-labels">
+      <span>Red / Orange — Chaos</span>
+      <span>Amber — Transition</span>
+      <span>Blue / Teal — Control</span>
+    </div>
+    <p style="font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.6">The color shift is the series' visual spine. It does not happen all at once — it bleeds in gradually as Amina's solutions take hold. One machine turns from orange to blue. Then a section of the dashboard. Then the entire room. By the final scene, the world is a different color — and the audience feels the change before they understand it.</p>
+  </div>
+
+  <p class="prose" style="margin-top:20px"><strong>Animation Style Rules:</strong> Characters move with physical weight — no floaty or rubbery exaggeration. Facial expressions carry full emotional range but stay grounded. Machines and environments follow real mechanical logic. Lighting is cinematic: motivated sources, strong shadows, lens flares at key dramatic moments. Every episode should feel visually consistent — same character proportions, same lighting rigs, same environment geometry.</p>
+</div>
+
+<!-- SECTION 03 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">03</div>
+    <div class="section-title">Character Breakdown</div>
+  </div>
+
+  <div class="char-grid">
+    <div class="char-card char-hero">
+      <div class="char-avatar">AB</div>
+      <div>
+        <div class="char-role">Protagonist / Hero</div>
+        <div class="char-name">Amina Brooks</div>
+      </div>
+      <p class="char-desc">The embodiment of intelligent automation. She doesn't rush — she observes, diagnoses, and acts with precision. Her calm is not passivity; it is mastery. She enters environments others have given up on and sees solutions where others see only problems.</p>
+      <div>
+        <span class="char-trait">Calm</span>
+        <span class="char-trait">Decisive</span>
+        <span class="char-trait">Strategic</span>
+        <span class="char-trait">Empathetic</span>
+      </div>
+      <p class="char-desc" style="margin-top:6px"><strong>Visual Identity:</strong> Dressed in smart utility wear — structured jacket, functional details. She carries herself with natural authority. Blue and white tones dominate her colour palette, reinforcing her alignment with the "control" state the world is moving toward.</p>
+    </div>
+
+    <div class="char-card char-male">
+      <div class="char-avatar">MW</div>
+      <div>
+        <div class="char-role">The Overwhelmed Worker</div>
+        <div class="char-name">Male Worker</div>
+      </div>
+      <p class="char-desc">He represents the human cost of broken systems — not incompetence, but exhaustion. He works hard, cares deeply, but is being defeated by a system that was never designed well. His frustration is relatable and honest, not comic.</p>
+      <div>
+        <span class="char-trait">Frustrated</span>
+        <span class="char-trait">Hardworking</span>
+        <span class="char-trait">Skeptical</span>
+        <span class="char-trait">Relieved</span>
+      </div>
+      <p class="char-desc" style="margin-top:6px"><strong>Arc:</strong> Begins as the face of the problem. Resists change initially — he's been burned by false promises before. His eventual acceptance of Amina's system carries the emotional weight of the resolution.</p>
+    </div>
+
+    <div class="char-card char-female">
+      <div class="char-avatar">FW</div>
+      <div>
+        <div class="char-role">The Observer / Learner</div>
+        <div class="char-name">Female Worker</div>
+      </div>
+      <p class="char-desc">She is the audience's perspective character. Sharp, observant, and genuinely curious. She notices things the male worker is too frustrated to see. She watches Amina closely, asks the right questions, and begins to understand what good automation actually means.</p>
+      <div>
+        <span class="char-trait">Curious</span>
+        <span class="char-trait">Analytical</span>
+        <span class="char-trait">Adaptable</span>
+        <span class="char-trait">Bridge</span>
+      </div>
+      <p class="char-desc" style="margin-top:6px"><strong>Arc:</strong> Her growing understanding mirrors the audience's own journey. When she finally grasps what the system is doing, the audience has too. She becomes the bridge between the world before and the world after.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 04 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">04</div>
+    <div class="section-title">Series Structure &amp; Episode Guide</div>
+  </div>
+
+  <p class="prose">The series is structured as a complete narrative arc across four key productions: a standalone introduction, a suspense teaser, and two core episodes. A third episode is recommended and outlined at the end of this section.</p>
+
+  <!-- INTRO -->
+  <div class="ep-block ep-intro">
+    <div class="ep-header">
+      <div class="ep-badge">A — Introduction</div>
+      <div class="ep-title">Establishing the World</div>
+      <div class="ep-tone">Tone: Grounded, observational</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-row">
+        <div class="ep-key">Purpose</div>
+        <div class="ep-val">Orient the audience to the world of Brooks Automation. Introduce the industrial setting, the workers, and the sense that something is not quite right — without revealing the full extent of the chaos yet.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">What we see</div>
+        <div class="ep-val">A normal workday at the facility. The control room. Workers going through their routines. Small inefficiencies — a machine that hesitates, a dashboard nobody is watching, a report that arrives too late. Nothing catastrophic, but a growing unease.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Emotional goal</div>
+        <div class="ep-val">The audience should feel the weight of a system that is slowly losing its grip. Empathy for the workers. A sense that this place is trying — but something is missing.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">What audience learns</div>
+        <div class="ep-val">Who these people are. What they do. What is at stake. And subconsciously — that this environment is hungry for a better solution.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEASER -->
+  <div class="ep-block ep-teaser">
+    <div class="ep-header">
+      <div class="ep-badge">B — Teaser</div>
+      <div class="ep-title">Suspense Sequence</div>
+      <div class="ep-tone">Tone: Cinematic, intriguing</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-row">
+        <div class="ep-key">Strategy</div>
+        <div class="ep-val">The teaser's job is to create a question in the audience's mind — not answer it. It should feel like the opening frames of a film: something is wrong, something is coming, and the audience wants to know what happens next.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Scenes</div>
+        <div class="ep-val">
+          A montage of the system failing — alarms, frozen screens, a conveyor belt grinding to a halt, the male worker slamming his hands on a desk. Then: silence. A door at the far end of the control room opens. A silhouette in the doorway. The workers turn. Cut to black. "Sound Systems. Sound Engineering." — then the series title.
+        </div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">What to withhold</div>
+        <div class="ep-val">Amina's face, her name, her method. The teaser shows the problem at its peak and the arrival of a presence — but nothing more. The audience must watch the series to find out who she is and what she does.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Duration target</div>
+        <div class="ep-val">30–45 seconds. Fast-cut chaos followed by a single long, held, silent moment. The contrast is the tension.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP 1 -->
+  <div class="ep-block ep-one">
+    <div class="ep-header">
+      <div class="ep-badge">C — Episode 1</div>
+      <div class="ep-title">The Chaos</div>
+      <div class="ep-tone">Tone: Urgent, human, exhausting</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-row">
+        <div class="ep-key">Opening</div>
+        <div class="ep-val">The full chaos is revealed. Multiple systems failing simultaneously. The male worker is trying to manage everything manually — impossible for one person. The female worker is documenting failures but has nowhere to report them that anyone reads.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Key scenes</div>
+        <div class="ep-val">
+          A machine jams and takes five people to fix by hand. A critical process runs twelve minutes late — causing a downstream cascade. An alarm goes off and nobody knows which system triggered it. The male worker makes a decision based on incomplete data — and gets it wrong.
+        </div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Visual approach</div>
+        <div class="ep-val">Red and orange lighting throughout. Tight, claustrophobic camera angles. Cutting between the control room and the factory floor in quick succession — showing that neither space is winning. Close-ups of human faces: sweat, strain, quiet despair.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Episode close</div>
+        <div class="ep-val">Amina is finally introduced — not dramatically, but quietly. She stands in the control room doorway, takes one slow look around the room, and walks in. Her expression says: <em>I understand exactly what is wrong here.</em> End of episode.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Emotional goal</div>
+        <div class="ep-val">The audience must feel the cost of the chaos — not just see it. This episode should be slightly uncomfortable to watch. That discomfort becomes the fuel for the emotional payoff in Episode 2.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP 2 -->
+  <div class="ep-block ep-two">
+    <div class="ep-header">
+      <div class="ep-badge">D — Episode 2</div>
+      <div class="ep-title">The Transformation</div>
+      <div class="ep-tone">Tone: Hopeful, methodical, triumphant</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-row">
+        <div class="ep-key">Opening</div>
+        <div class="ep-val">Amina begins her diagnosis — not by taking over, but by listening. She talks to the workers, observes quietly, takes notes. The female worker is drawn to her immediately. The male worker keeps his distance — skeptical.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Transformation method</div>
+        <div class="ep-val">Amina does not fix everything at once. She works through the system layer by layer — first the SCADA dashboard, then the factory floor sensors, then the PLC sequences. Each fix is a small, visible improvement. A machine that used to stutter now runs smoothly. A screen that showed errors now shows clean data.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Color transition</div>
+        <div class="ep-val">This episode is where the color shift happens. As each system is fixed, the lighting in that section of the environment transitions from red/orange to blue/teal. By the midpoint, half the room is a different color. By the final scene, the entire world has shifted.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Character resolution</div>
+        <div class="ep-val">The male worker's moment of conversion is the emotional climax — he watches a process run smoothly that has failed for months. He looks at Amina. No words needed. The female worker, now fully engaged, is learning from Amina directly — a sign that this knowledge will continue beyond Amina's presence.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Closing sequence</div>
+        <div class="ep-val">A wide shot of the factory floor — everything running. Machines in rhythm. Workers calm at their stations. The control room glowing blue and steady. Pull back through the glass to reveal the full scope of what has changed. Then, quietly: <strong>"Sound Systems. Sound Engineering."</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP 3 (optional) -->
+  <div class="ep-block ep-three">
+    <div class="ep-header">
+      <div class="ep-badge">E — Episode 3 (Optional)</div>
+      <div class="ep-title">The New Normal</div>
+      <div class="ep-tone">Tone: Confident, forward-looking</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-row">
+        <div class="ep-key">Purpose</div>
+        <div class="ep-val">This episode shows the world after Amina — a facility that has internalised the systems and continues to run well. It answers the question: does the transformation last? It also sets up the possibility of expansion — a new challenge, a new client, or a different kind of system problem.</div>
+      </div>
+      <div class="ep-row">
+        <div class="ep-key">Recommendation</div>
+        <div class="ep-val">Produce this episode if the series gains traction and Brooks Automation wants to extend the brand story. It can introduce new environments, new characters, or revisit the original workers — now confident, effective, and capable of teaching others. It solidifies the brand narrative as one of lasting transformation, not quick fixes.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 05 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">05</div>
+    <div class="section-title">Key Cinematic Moments</div>
+  </div>
+
+  <p class="prose">These are the scenes that will define the series in the audience's memory. Each one must be built with the care of a film's most iconic moment — not just a story beat, but a full sensory experience.</p>
+
+  <div class="moments-grid">
+    <div class="moment-row moment-chaos">
+      <div class="moment-icon">🔴</div>
+      <div class="moment-content">
+        <div class="moment-title">The System Failure — "Everything at Once"</div>
+        <div class="moment-desc">A multi-screen sequence showing simultaneous failures across multiple systems. Alarms, flashing warnings, a factory floor jam, and a worker frozen in the control room not knowing where to look first. This moment must feel genuinely overwhelming — the audience should feel the same helplessness the workers do. It is the visual argument for why automation matters.</div>
+      </div>
+    </div>
+
+    <div class="moment-row moment-enter">
+      <div class="moment-icon">🔵</div>
+      <div class="moment-content">
+        <div class="moment-title">Amina's Entrance — "The Door Opens"</div>
+        <div class="moment-desc">Slow motion. A door at the far end of a chaotic control room swings open. Natural light floods in behind Amina as she stands in the frame. The alarms are still going. Workers turn one by one. She surveys the room with calm, focused eyes. She has walked into rooms like this before. This moment must feel like the air pressure changes when she enters — a physical sense of "help has arrived." Her first words should be quiet, not dramatic.</div>
+      </div>
+    </div>
+
+    <div class="moment-row moment-transform">
+      <div class="moment-icon">✦</div>
+      <div class="moment-content">
+        <div class="moment-title">The First Fix — "One System Turns Blue"</div>
+        <div class="moment-desc">The moment the first system Amina touches comes back online — and the red light above it shifts to a steady blue. A small thing. But the female worker watches it happen and understands something has changed. This is the pivot of the entire series: the first proof that the world can be different. It must be played quietly, not triumphantly. The triumph comes later. This moment is about possibility.</div>
+      </div>
+    </div>
+
+    <div class="moment-row moment-enter">
+      <div class="moment-icon">⬛</div>
+      <div class="moment-content">
+        <div class="moment-title">The Full Transformation — "The Factory Breathes"</div>
+        <div class="moment-desc">A wide aerial-style shot of the factory floor — fully automated, fully running. Conveyors move in rhythm. Machines operate without incident. Workers move purposefully, not frantically. The camera pulls back slowly through the control room glass, revealing the full scope of the transformed world. No alarms. No red lights. Just the sound of a system that works. This is the payoff for everything the audience has watched — and it must be allowed to breathe for five full seconds of silence before the brand message appears.</div>
+      </div>
+    </div>
+
+    <div class="moment-row moment-chaos">
+      <div class="moment-icon">👤</div>
+      <div class="moment-content">
+        <div class="moment-title">The Male Worker's Moment — "He Believes"</div>
+        <div class="moment-desc">A close-up of the male worker's face as he watches the process that has failed for months finally running clean. He doesn't cheer. He doesn't smile broadly. He simply exhales — long, slow — and nods. This is the most human moment in the series and may be its most powerful. It translates the entire technical story into a single, universally understood emotion: relief. Every audience member, technical or not, will understand this face.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 06 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">06</div>
+    <div class="section-title">Production Approach — AI-Based Generation</div>
+  </div>
+
+  <p class="prose">Because this series is being produced using AI-based visual generation tools, the production workflow must be structured carefully to maintain visual consistency across all scenes, characters, and environments. The following principles should guide every generation session.</p>
+
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-n">01</div>
+      <div>
+        <div class="step-title">Scene Decomposition — One Beat at a Time</div>
+        <div class="step-desc">Every scene should be broken into individual shots before generation begins. A single 30-second sequence may require 8–15 separate image generations. List each shot (wide, medium, close-up) with a precise description before generating any of them. Never try to capture an entire scene in one prompt.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">02</div>
+      <div>
+        <div class="step-title">Character Consistency — The Reference Sheet First</div>
+        <div class="step-desc">Before any episode generation begins, create a dedicated character reference sheet for each of the three main characters: Amina, the male worker, and the female worker. This sheet defines their proportions, clothing, facial features, skin tone, and key expression states. Every subsequent generation prompt must reference or include this sheet to maintain consistency.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">03</div>
+      <div>
+        <div class="step-title">Environment Locking — Generate the World Once</div>
+        <div class="step-desc">Generate the control room and factory floor as standalone environmental shots first — before any characters appear. Lock in the geometry, lighting setup, and prop placement. These become the "background plates" that all subsequent character scenes are set against. Changing the environment mid-production breaks visual continuity.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">04</div>
+      <div>
+        <div class="step-title">Lighting as a Story Variable — Chaos vs Control</div>
+        <div class="step-desc">Maintain two separate lighting preset descriptions: the "chaos" state (red/orange, harsh, flickering) and the "control" state (blue/teal, steady, warm). Every generation prompt must specify which lighting state the scene is in — and the transitional scenes must specify an intermediate state. Lighting consistency is how the audience perceives the story's emotional arc.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">05</div>
+      <div>
+        <div class="step-title">Prompt Versioning — Keep Every Working Prompt</div>
+        <div class="step-desc">When a generation produces a scene that matches the visual direction, save the exact prompt used. Build a growing library of "locked" prompts for characters, environments, and lighting states. Future sessions should begin by loading these locked prompts before generating new variations. This is how consistency is preserved across multiple work sessions.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">06</div>
+      <div>
+        <div class="step-title">Sequential Review Before Post-Production</div>
+        <div class="step-desc">Before any scene is considered complete, review all of its individual shots in sequence at the intended playback speed. Inconsistencies that are invisible when looking at individual frames become obvious in motion. Character proportions, lighting continuity, and background elements must all be reviewed in sequence before final export.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 07 -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">07</div>
+    <div class="section-title">Brand Integration</div>
+  </div>
+
+  <p class="prose">The brand message — <em>"Sound Systems. Sound Engineering."</em> — must feel like the natural conclusion of the story, not a slogan dropped onto the end of it. The audience should arrive at the message already feeling it before they read it.</p>
+
+  <div class="callout" style="margin:20px 0">
+    <div class="callout-label">Integration Strategy</div>
+    <p style="font-size:13px;color:var(--ink2);line-height:1.7">The tagline carries a deliberate double meaning: <em>sound</em> as in acoustic — the quality of how a system sounds when it runs properly, and <em>sound</em> as in structurally solid and dependable. The storytelling should prime both meanings before the tagline appears. The factory floor, fully running, actually sounds different from the chaos — that audio contrast should be the lead-in to the title card.</p>
+  </div>
+
+  <p class="prose">The message is introduced in three phases across the series:</p>
+
+  <div class="steps-list" style="margin-top:16px">
+    <div class="step-item">
+      <div class="step-n">P1</div>
+      <div>
+        <div class="step-title">Teaser — First Contact</div>
+        <div class="step-desc">The tagline appears for the first time over a black screen at the end of the teaser — before the series title card. At this point, the audience has only seen chaos and a silhouette. The message plants a question: what does "sound" mean here? It functions as intrigue, not explanation.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">P2</div>
+      <div>
+        <div class="step-title">Episode 2 — The Earned Moment</div>
+        <div class="step-desc">After the full transformation sequence — the factory breathing, the male worker exhaling — the tagline returns. Now the audience understands it completely. Both senses of "sound" are simultaneously true. The system sounds smooth. And the system is sound. The message lands with the full weight of everything that came before it.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-n">P3</div>
+      <div>
+        <div class="step-title">Consistent Visual Treatment</div>
+        <div class="step-desc">The tagline should always appear in the same typographic format: clean, modern serif or refined sans-serif, white on dark, centered. No animation on the text itself — only the world around it should be in motion. The stillness of the text against the living world behind it is part of its power.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brand-finale">
+    <div class="brand-tagline">"Sound Systems. Sound Engineering."</div>
+    <p class="brand-sub">This line closes the series not as a product claim, but as a statement of belief. Brooks Automation does not just fix industrial problems — it builds systems that you can feel are right. The story earns the message. The message completes the story.</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-brand">BROOKS AUTOMATION — BRAND SERIES BRIEF</div>
+  <div class="footer-status">DRAFT — INTERNAL USE</div>
+</div>
+
+</div>
+</body>
+</html>

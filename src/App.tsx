@@ -1,640 +1,123 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useWhisper } from './hooks/useWhisper';
-import { parseMeasurements, MEASUREMENT_PARTS } from './utils/parser';
-import { RecordingButton } from './components/RecordingButton';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAppContext } from './context/AppContext';
 import { HistoryView } from './components/HistoryView';
-import { NumPad } from './components/NumPad';
-import { exportToImage } from './utils/export';
-import { useLabels } from './hooks/useLabels';
-import { useShopIdentity } from './hooks/useShopIdentity';
+import { SettingsScreen } from './components/SettingsScreen';
+import { RecorderScreen } from './components/RecorderScreen';
+import { SetupJobScreen } from './components/SetupJobScreen';
+import { HomeScreen } from './components/HomeScreen';
+import { ClientProfileScreen } from './components/ClientProfileScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginScreen } from './components/LoginScreen';
+import { SignupScreen } from './components/SignupScreen';
+import { OnboardingScreen } from './components/OnboardingScreen';
 
-const App: React.FC = () => {
-  const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
-
-  const [activeNav, setActiveNav] = useState<'recorder' | 'history' | 'settings'>('recorder');
-  const [inputMode, setInputMode] = useState<'voice' | 'manual'>('voice');
-  const [finalMeasurements, setFinalMeasurements] = useState<Record<string, number>>({});
-  const [customerName, setCustomerName] = useState('');
-  const [unit, setUnit] = useState<'in' | 'cm'>('in');
-  const [isSaved, setIsSaved] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-
-  const { shopName, saveShopName, isSetup } = useShopIdentity();
-  const [shopInput, setShopInput] = useState('');
-  const { getLabel, renameLabel, resetLabel, resetAllLabels, findPartByLabel, hasCustomLabel, customLabels, allParts, addCustomPart, removeCustomPart } = useLabels();
-
-  // NumPad state
-  const [numPadPart, setNumPadPart] = useState<string | null>(null);
-  // Inline rename state (Option 1)
-  const [renamingPart, setRenamingPart] = useState<string | null>(null);
-  const [renameInput, setRenameInput] = useState('');
-  // Add new label state
-  const [addingLabel, setAddingLabel] = useState(false);
-  const [newLabelInput, setNewLabelInput] = useState('');
-
-  // Photo State
-  const [stylePhotos, setStylePhotos] = useState<string[]>([]);
-  const [clothPhotos, setClothPhotos] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState<'style' | 'cloth' | null>(null);
-
-  const styleInputRef = useRef<HTMLInputElement>(null);
-  const clothInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetch('https://tailor-backend-9ilv.onrender.com/api/customers')
-      .then(() => setBackendStatus('online'))
-      .catch(() => setBackendStatus('offline'));
-  }, [activeNav]);
-
-  // Voice Mode: also match custom labels in transcript
-  useEffect(() => {
-    if (inputMode !== 'voice' || !transcript) return;
-    const { structured, standaloneNumbers } = parseMeasurements(transcript);
-    // Also check custom labels in the raw transcript
-    const words = transcript.toLowerCase().split(/\s+/);
-    for (let i = 0; i < words.length - 1; i++) {
-      const matchedPart = findPartByLabel(words[i]);
-      const num = parseFloat(words[i + 1]);
-      if (matchedPart && !isNaN(num)) structured[matchedPart] = num;
-    }
-    setFinalMeasurements(prev => {
-      const next = { ...prev, ...structured };
-      if (standaloneNumbers.length > 0) {
-        let idx = 0;
-        for (const part of MEASUREMENT_PARTS) {
-          if (idx >= standaloneNumbers.length) break;
-          if (!next[part]) { next[part] = standaloneNumbers[idx]; idx++; }
-        }
-      }
-      return next;
-    });
-  }, [transcript, inputMode]);
-
-  // NumPad: Clear a single measurement value
-  const handleNumPadClear = () => {
-    if (!numPadPart) return;
-    setFinalMeasurements(p => {
-      const next = { ...p };
-      delete next[numPadPart];
-      return next;
-    });
-    setNumPadPart(null);
-  };
-
-  // NumPad: Confirm value for a part
-  const handleNumPadConfirm = (value: number) => {
-    if (!numPadPart) return;
-    setFinalMeasurements(p => ({ ...p, [numPadPart]: value }));
-    setNumPadPart(null);
-  };
-
-  // NumPad: Confirm value and advance to next part
-  const handleNumPadNext = (value: number) => {
-    if (!numPadPart) return;
-    setFinalMeasurements(p => ({ ...p, [numPadPart]: value }));
-    const currentIdx = MEASUREMENT_PARTS.indexOf(numPadPart);
-    const nextPart = MEASUREMENT_PARTS[currentIdx + 1];
-    setNumPadPart(nextPart || null);
-  };
-
-  // Open NumPad (only in manual mode)
-  const handleCardTap = (part: string) => {
-    if (inputMode === 'manual') setNumPadPart(part);
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'style' | 'cloth') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(type);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'TailorVoice');
-    try {
-      const res = await fetch('https://api.cloudinary.com/v1_1/dcpvhegxr/image/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (type === 'style') setStylePhotos(prev => [...prev, data.secure_url].slice(0, 3));
-      else setClothPhotos(prev => [...prev, data.secure_url].slice(0, 3));
-    } catch { alert("Upload failed."); }
-    finally { setIsUploading(null); }
-  };
-
-  const handleSaveToBackend = async () => {
-    if (!customerName) return;
-    try {
-      const res = await fetch('https://tailor-backend-9ilv.onrender.com/api/measurements', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-Shop-ID': shopName,
-        },
-        body: JSON.stringify({
-          customer_name: customerName,
-          data: finalMeasurements,
-          transcript,
-          unit,
-          shop_id: shopName,
-          style_photos: stylePhotos,
-          cloth_photos: clothPhotos,
-        }),
-      });
-      if (res.ok) {
-        setIsSaved(true);
-        setTimeout(() => {
-          setIsSaved(false); setIsSaving(false);
-          setFinalMeasurements({}); setCustomerName('');
-          setStylePhotos([]); setClothPhotos([]);
-          clearTranscript();
-        }, 1500);
-      }
-    } catch { alert('Backend Error.'); }
-  };
-
-  const hasData = Object.keys(finalMeasurements).length > 0;
-  const nextExpectedPart = allParts.find(p => !finalMeasurements[p]);
-  const filledCount = Object.keys(finalMeasurements).length;
-
-  // First-launch: show shop name prompt
-  if (!isSetup) {
-    return (
-      <div className="h-screen flex items-end justify-center bg-[#FDFDFD]">
-        <div className="bg-white w-full rounded-t-[48px] p-10 flex flex-col gap-6 shadow-2xl animate-bottom-sheet">
-          <div className="text-center">
-            <span className="text-4xl block mb-4">🧵</span>
-            <h2 className="text-3xl font-black tracking-tight">Welcome to TailorVoice</h2>
-            <p className="text-gray-400 text-sm font-medium mt-2">Enter your shop name to get started.<br/>This keeps your records private.</p>
-          </div>
-          <input
-            autoFocus
-            type="text"
-            placeholder="e.g. Emman's Tailors..."
-            value={shopInput}
-            onChange={e => setShopInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && shopInput.trim()) saveShopName(shopInput); }}
-            className="w-full bg-gray-50 border-b-4 border-primary/20 py-4 text-2xl outline-none focus:border-primary transition-colors font-bold text-center"
-          />
-          <button
-            onClick={() => { if (shopInput.trim()) saveShopName(shopInput); }}
-            disabled={!shopInput.trim()}
-            className={`py-5 rounded-[32px] font-black text-sm tracking-widest uppercase transition-all ${
-              shopInput.trim() ? 'bg-primary text-white shadow-lg' : 'bg-gray-100 text-gray-300'
-            }`}
-          >
-            Enter My Workshop →
-          </button>
+const NavBar: React.FC = () => {
+  const location = useLocation();
+  const path = location.pathname;
+  
+  return (
+    <nav className="bg-white/90 backdrop-blur-md border-t border-gray-100 px-8 pt-4 pb-8 flex justify-between items-center z-40 relative">
+      <Link to="/" className={`flex flex-col items-center gap-1.5 transition-colors ${path === '/' ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${path === '/' ? 'bg-[#0F172A] text-white' : ''}`}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         </div>
+      </Link>
+      
+      <Link to="/clients" className={`flex flex-col items-center gap-1.5 transition-colors ${path === '/clients' || path.startsWith('/client/') ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span className="text-[9px] font-bold tracking-widest uppercase">CLIENTS</span>
+      </Link>
+
+      <div className="w-16"></div>
+
+      <Link to="/measure" className={`flex flex-col items-center gap-1.5 transition-colors ${path === '/measure' ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6" y2="10"></line><line x1="10" y1="6" x2="10" y2="10"></line><line x1="14" y1="6" x2="14" y2="10"></line><line x1="18" y1="6" x2="18" y2="10"></line></svg>
+        <span className="text-[9px] font-bold tracking-widest uppercase">MEASURE</span>
+      </Link>
+
+      <Link to="/archive" className={`flex flex-col items-center gap-1.5 transition-colors ${path === '/archive' ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span className="text-[9px] font-bold tracking-widest uppercase">ARCHIVE</span>
+      </Link>
+
+      <Link to="/settings" className={`flex flex-col items-center gap-1.5 transition-colors ${path === '/settings' ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span className="text-[9px] font-bold tracking-widest uppercase">SETTINGS</span>
+      </Link>
+    </nav>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const { currentSession } = useAppContext();
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  if (isLoading) {
+    return <div className="h-screen flex items-center justify-center bg-[#FDFDFD]">
+      <div className="animate-pulse flex flex-col items-center">
+        <span className="text-4xl mb-4">🧵</span>
+        <div className="h-1 w-20 bg-gray-100 rounded-full"></div>
       </div>
+    </div>;
+  }
+
+  // Auth Guard
+  if (!user) {
+    const hasSeenOnboarding = localStorage.getItem('tailor_onboarded');
+    
+    return (
+      <Routes>
+        {!hasSeenOnboarding && <Route path="/" element={<OnboardingScreen />} />}
+        <Route path="/signup" element={<SignupScreen />} />
+        <Route path="/login" element={<LoginScreen />} />
+        <Route path="*" element={hasSeenOnboarding ? <LoginScreen /> : <OnboardingScreen />} />
+      </Routes>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#FDFDFD] text-[#1A1A1A] overflow-hidden font-sans relative">
-
-      {/* Header */}
-      <header className="px-6 py-5 bg-white flex justify-between items-center border-b border-gray-50 z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </div>
-          <h1 className="text-lg font-bold tracking-tight">TailorVoice</h1>
-        </div>
-        <div className="flex bg-gray-50 p-1 rounded-xl">
-          <button onClick={() => setUnit('in')} className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${unit === 'in' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}>IN</button>
-          <button onClick={() => setUnit('cm')} className={`px-4 py-1.5 text-[10px] font-black rounded-lg transition-all ${unit === 'cm' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}>CM</button>
-        </div>
-      </header>
-
-      <main className="flex-1 relative overflow-y-auto custom-scrollbar pb-32">
-        {activeNav === 'history' ? (
-          <div className="p-6"><HistoryView shopName={shopName} /></div>
-        ) : activeNav === 'settings' ? (
-          <div className="p-6 space-y-6">
-            {/* Shop Identity Section */}
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Shop Identity</h3>
-                <span className="text-[8px] font-black bg-primary/10 text-primary px-2 py-1 rounded-full uppercase">Pilot Profile</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-xl shadow-inner">🏬</div>
-                <div className="flex-1">
-                  {renamingPart === 'SHOP_NAME' ? (
-                    <div className="flex gap-2">
-                      <input
-                        autoFocus
-                        value={renameInput}
-                        onChange={e => setRenameInput(e.target.value)}
-                        onBlur={() => { if (renameInput.trim()) saveShopName(renameInput); setRenamingPart(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') { if (renameInput.trim()) saveShopName(renameInput); setRenamingPart(null); } }}
-                        className="flex-1 bg-gray-50 px-3 py-1.5 rounded-lg text-sm font-bold border border-primary/20 outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-gray-900">{shopName}</span>
-                      <button onClick={() => { setRenamingPart('SHOP_NAME'); setRenameInput(shopName); }} className="text-[10px] font-bold text-primary uppercase tracking-widest text-left mt-0.5">Rename Shop</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">System Status</h3>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Backend Server</span>
-                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${backendStatus === 'online' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{backendStatus.toUpperCase()}</span>
-              </div>
-            </div>
-
-            {/* Option 2: My Labels Management */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">My Labels</h3>
-                {Object.keys(customLabels).length > 0 && (
-                  <button onClick={resetAllLabels} className="text-[9px] font-black text-red-400 uppercase tracking-widest">Reset Names</button>
-                )}
-              </div>
-              <div className="divide-y divide-gray-50">
-                {allParts.map(part => (
-                  <div key={part} className="px-6 py-3 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      {!MEASUREMENT_PARTS.includes(part) && (
-                        <span className="text-[8px] bg-primary/10 text-primary font-black px-1.5 py-0.5 rounded uppercase">Custom</span>
-                      )}
-                      <span className="text-[9px] font-bold text-gray-300 uppercase w-16 truncate">{part}</span>
-                      <span className="text-[9px] text-gray-200">→</span>
-                      {renamingPart === part ? (
-                        <input
-                          autoFocus
-                          value={renameInput}
-                          onChange={e => setRenameInput(e.target.value)}
-                          onBlur={() => { renameLabel(part, renameInput); setRenamingPart(null); }}
-                          onKeyDown={e => { if (e.key === 'Enter') { renameLabel(part, renameInput); setRenamingPart(null); } if (e.key === 'Escape') setRenamingPart(null); }}
-                          className="text-sm font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg outline-none border border-primary/20 w-28"
-                        />
-                      ) : (
-                        <span className={`text-sm font-bold capitalize ${hasCustomLabel(part) ? 'text-primary' : 'text-gray-400'}`}>
-                          {getLabel(part)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={() => { setRenamingPart(part); setRenameInput(getLabel(part)); }} className="text-[9px] font-black text-gray-300 uppercase hover:text-primary transition-colors">✏️</button>
-                      {hasCustomLabel(part) && <button onClick={() => resetLabel(part)} className="text-[9px] font-black text-red-300 uppercase">↩</button>}
-                      {!MEASUREMENT_PARTS.includes(part) && (
-                        <button onClick={() => removeCustomPart(part)} className="text-[9px] font-black text-red-400 uppercase">✕</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {/* Add New Label */}
-              <div className="px-6 py-4 border-t border-gray-50">
-                {addingLabel ? (
-                  <div className="flex gap-2">
-                    <input
-                      autoFocus
-                      value={newLabelInput}
-                      onChange={e => setNewLabelInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && newLabelInput.trim()) { addCustomPart(newLabelInput); setNewLabelInput(''); setAddingLabel(false); }
-                        if (e.key === 'Escape') { setAddingLabel(false); setNewLabelInput(''); }
-                      }}
-                      placeholder="e.g. Neck Drop..."
-                      className="flex-1 bg-gray-50 px-4 py-2 rounded-xl text-sm font-bold outline-none border border-primary/20"
-                    />
-                    <button
-                      onClick={() => { if (newLabelInput.trim()) { addCustomPart(newLabelInput); setNewLabelInput(''); setAddingLabel(false); } }}
-                      className="bg-primary text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase"
-                    >Add</button>
-                    <button onClick={() => { setAddingLabel(false); setNewLabelInput(''); }} className="text-gray-300 px-2 text-lg">✕</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setAddingLabel(true)}
-                    className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-100 text-[10px] font-black text-gray-300 uppercase tracking-widest hover:border-primary/30 hover:text-primary transition-all"
-                  >
-                    + Add New Label
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-4 bg-white border border-red-50 text-red-500 font-bold rounded-2xl">Factory Reset</button>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-
-            {/* 🎛️ Mode Toggle */}
-            <div className="px-6 pt-6">
-              <div className="flex bg-gray-100/60 p-1.5 rounded-[20px] border border-gray-100">
-                <button
-                  onClick={() => setInputMode('voice')}
-                  className={`flex-1 py-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest rounded-[15px] transition-all ${inputMode === 'voice' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}
-                >
-                  <span>🎙️</span> Voice
-                </button>
-                <button
-                  onClick={() => setInputMode('manual')}
-                  className={`flex-1 py-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest rounded-[15px] transition-all ${inputMode === 'manual' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}
-                >
-                  <span>⌨️</span> Manual
-                </button>
-              </div>
-            </div>
-
-            {/* Voice Mode: Live Transcript Monitor */}
-            {inputMode === 'voice' && (
-              <div className="px-6 pt-4">
-                <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm min-h-[90px] flex flex-col">
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-[10px] uppercase tracking-widest text-primary font-black">Live Translation</label>
-                    {(transcript || hasData) && (
-                      <div className="flex gap-4">
-                        <button onClick={() => setIsSaving(true)} className="text-[10px] text-primary font-black tracking-widest">SAVE</button>
-                        <button onClick={clearTranscript} className="text-[10px] text-gray-300 font-bold">RESET</button>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-lg text-gray-400 font-light leading-snug">
-                    {transcript || <span className="opacity-20 italic text-sm">Speak values to fill the list...</span>}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Manual Mode: Progress Bar */}
-            {inputMode === 'manual' && (
-              <div className="px-6 pt-4">
-                <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Progress</span>
-                    <div className="flex items-center gap-4">
-                      {hasData && (
-                        <button
-                          onClick={() => { if (window.confirm('Reset all measurements?')) { setFinalMeasurements({}); clearTranscript(); } }}
-                          className="text-[10px] font-black text-red-400 uppercase tracking-widest"
-                        >
-                          RESET ALL
-                        </button>
-                      )}
-                      {hasData && <button onClick={() => setIsSaving(true)} className="text-[10px] text-primary font-black tracking-widest">SAVE</button>}
-                      <span className="text-[10px] font-black text-gray-400">{filledCount} / {allParts.length}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${(filledCount / allParts.length) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest mt-2">
-                    {filledCount === allParts.length ? '✓ All measurements filled' : `Tap a card below to enter a value`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Measurement List */}
-            <div className="px-6 py-4">
-              <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
-                <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Measurements ({unit.toUpperCase()})</span>
-                  {inputMode === 'voice' && nextExpectedPart && (
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
-                      <span className="text-[8px] font-black text-primary uppercase tracking-tighter">Waiting: {nextExpectedPart}</span>
-                    </div>
-                  )}
-                  {inputMode === 'manual' && (
-                    <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Tap to fill</span>
-                  )}
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {allParts.map((part) => {
-                    const value = finalMeasurements[part];
-                    const isFocused = inputMode === 'voice' && nextExpectedPart === part;
-                    const isManualActive = numPadPart === part;
-                    const displayLabel = getLabel(part);
-                    return (
-                      <div
-                        key={part}
-                        onClick={() => handleCardTap(part)}
-                        className={`px-6 py-4 flex justify-between items-center transition-all duration-200 cursor-pointer ${
-                          isFocused ? 'bg-primary/5' :
-                          isManualActive ? 'bg-primary/10' :
-                          'hover:bg-gray-50 active:bg-gray-100'
-                        }`}
-                      >
-                        {/* Option 1: Double-tap label to rename inline */}
-                        {renamingPart === part ? (
-                          <input
-                            autoFocus
-                            value={renameInput}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => setRenameInput(e.target.value)}
-                            onBlur={() => { renameLabel(part, renameInput); setRenamingPart(null); }}
-                            onKeyDown={e => { if (e.key === 'Enter') { renameLabel(part, renameInput); setRenamingPart(null); } if (e.key === 'Escape') setRenamingPart(null); }}
-                            className="text-sm font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg outline-none border border-primary/20 w-28"
-                          />
-                        ) : (
-                          <span
-                            onDoubleClick={e => { e.stopPropagation(); setRenamingPart(part); setRenameInput(displayLabel); }}
-                            className={`capitalize text-sm font-semibold select-none ${value ? 'text-gray-900' : isFocused || isManualActive ? 'text-primary' : 'text-gray-300'} ${hasCustomLabel(part) ? 'text-primary' : ''}`}
-                            title="Double-tap to rename"
-                          >
-                            {displayLabel}
-                          </span>
-                        )}
-                        <div className="flex items-center gap-2">
-                          {inputMode === 'manual' && !value && (
-                            <span className="text-[8px] font-black text-gray-200 uppercase">tap</span>
-                          )}
-                          <span className={`text-xl font-bold transition-all ${value ? 'text-primary' : 'text-gray-100'}`}>
-                            {value || '00'}
-                            <span className="text-[10px] ml-1 opacity-30 font-medium">{unit}</span>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Add New Label at bottom of list */}
-                <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
-                  {addingLabel ? (
-                    <div className="flex gap-2">
-                      <input
-                        autoFocus
-                        value={newLabelInput}
-                        onChange={e => setNewLabelInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && newLabelInput.trim()) { addCustomPart(newLabelInput); setNewLabelInput(''); setAddingLabel(false); }
-                          if (e.key === 'Escape') { setAddingLabel(false); setNewLabelInput(''); }
-                        }}
-                        placeholder="Add new measurement..."
-                        className="flex-1 bg-white px-4 py-2 rounded-xl text-sm font-bold outline-none border border-primary/20 shadow-sm"
-                      />
-                      <button
-                        onClick={() => { if (newLabelInput.trim()) { addCustomPart(newLabelInput); setNewLabelInput(''); setAddingLabel(false); } }}
-                        className="bg-primary text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg"
-                      >Add</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setAddingLabel(true)}
-                      className="w-full py-3 text-[10px] font-black text-gray-300 uppercase tracking-widest hover:text-primary transition-all flex items-center justify-center gap-2"
-                    >
-                      <span>+</span> Add Custom Measurement
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Voice Mode: Floating Mic */}
-            {inputMode === 'voice' && (
-              <div className="fixed bottom-28 left-0 right-0 flex justify-center z-40 pointer-events-none">
-                <div className="pointer-events-auto">
-                  <RecordingButton isListening={isListening} onClick={toggleListening} />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+    <div className="h-screen flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
+      
+      {/* Main Content Router */}
+      <main className="flex-1 relative overflow-y-auto custom-scrollbar">
+        <Routes>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/clients" element={<div className="p-6"><ClientProfileScreen /></div>} />
+          <Route path="/client/:id" element={<div className="p-6"><ClientProfileScreen /></div>} />
+          <Route path="/archive" element={<div className="p-6"><HistoryView /></div>} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/measure" element={currentSession ? <RecorderScreen /> : <SetupJobScreen />} />
+        </Routes>
       </main>
 
-      {/* Save Modal */}
-      {isSaving && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isSaved && setIsSaving(false)}></div>
-          <div className="bg-white w-full rounded-t-[48px] p-10 flex flex-col gap-6 animate-bottom-sheet z-[110] shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar pb-20">
-            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto"></div>
-            <div className="text-center">
-              <h3 className="text-2xl font-black">Archive Record</h3>
-              <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-1">Add reference & fabric photos</p>
-            </div>
-            <div className="space-y-3">
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">👗 Style References ({stylePhotos.length}/3)</span>
-              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                {stylePhotos.map((url, idx) => (
-                  <div key={idx} className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100 relative group">
-                    <img src={url} className="w-full h-full object-cover" />
-                    <button onClick={() => setStylePhotos(p => p.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-                  </div>
-                ))}
-                {stylePhotos.length < 3 && (
-                  <div onClick={() => styleInputRef.current?.click()} className="w-24 h-24 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex items-center justify-center flex-shrink-0 cursor-pointer">
-                    {isUploading === 'style' ? <div className="animate-spin">⌛</div> : <span className="text-xl">📸</span>}
-                  </div>
-                )}
-                <input type="file" ref={styleInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, 'style')} />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">🧵 Fabric Samples ({clothPhotos.length}/3)</span>
-              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                {clothPhotos.map((url, idx) => (
-                  <div key={idx} className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100 relative group">
-                    <img src={url} className="w-full h-full object-cover" />
-                    <button onClick={() => setClothPhotos(p => p.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-                  </div>
-                ))}
-                {clothPhotos.length < 3 && (
-                  <div onClick={() => clothInputRef.current?.click()} className="w-24 h-24 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex items-center justify-center flex-shrink-0 cursor-pointer">
-                    {isUploading === 'cloth' ? <div className="animate-spin">⌛</div> : <span className="text-xl">🧵</span>}
-                  </div>
-                )}
-                <input type="file" ref={clothInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, 'cloth')} />
-              </div>
-            </div>
-            <input autoFocus type="text" placeholder="Customer Name..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-gray-50 border-b-4 border-primary/20 py-4 text-3xl outline-none focus:border-primary transition-colors font-bold text-center" />
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => exportToImage('measurement-sheet', customerName || 'Client')} className="py-5 rounded-3xl border border-gray-100 text-[10px] font-black tracking-widest uppercase text-gray-400">Share Image</button>
-              <button onClick={handleSaveToBackend} disabled={!customerName || isSaved} className={`py-5 rounded-3xl font-black text-[10px] tracking-widest uppercase ${customerName && !isSaved ? 'bg-primary text-black' : 'bg-gray-100 text-gray-300'}`}>
-                {isSaved ? '✓ DONE' : 'SAVE CLOUD'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Boutique NumPad */}
-      {numPadPart && (
-        <NumPad
-          activePart={numPadPart}
-          currentValue={finalMeasurements[numPadPart]}
-          unit={unit}
-          onConfirm={handleNumPadConfirm}
-          onNext={handleNumPadNext}
-          onClear={handleNumPadClear}
-          onClose={() => setNumPadPart(null)}
-        />
-      )}
-
-      {/* Bottom Navigation */}
-      <nav className={`bg-white border-t border-gray-50 px-10 pt-6 pb-10 flex justify-between items-center z-50 relative ${isSaving ? 'hidden' : ''}`} style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
-        <button onClick={() => setActiveNav('recorder')} className={`flex flex-col items-center gap-1.5 transition-all ${activeNav === 'recorder' ? 'text-primary scale-110' : 'text-gray-300'}`}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-          <span className="text-[9px] font-black uppercase">Recorder</span>
+      {/* Floating Action Button (+ NEW JOB) */}
+      <div className="absolute bottom-[80px] left-0 right-0 flex justify-center z-50 pointer-events-none">
+        <button 
+          onClick={() => navigate('/measure')}
+          className="pointer-events-auto bg-[#0F172A] text-white flex items-center gap-2 px-8 py-4 rounded-[32px] shadow-[0_8px_30px_rgba(15,23,42,0.3)] hover:scale-105 transition-transform"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span className="text-[11px] font-bold tracking-widest uppercase mt-0.5">NEW JOB</span>
         </button>
-        <button onClick={() => setActiveNav('history')} className={`flex flex-col items-center gap-1.5 transition-all ${activeNav === 'history' ? 'text-primary scale-110' : 'text-gray-300'}`}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span className="text-[9px] font-black uppercase">Archive</span>
-        </button>
-        <button onClick={() => setActiveNav('settings')} className={`flex flex-col items-center gap-1.5 transition-all ${activeNav === 'settings' ? 'text-primary scale-110' : 'text-gray-300'}`}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          <span className="text-[9px] font-black uppercase">Settings</span>
-        </button>
-      </nav>
-      {/* Hidden Measurement Sheet for Image Capture */}
-      <div className="fixed -z-50 opacity-0 pointer-events-none left-0 top-0">
-        <div id="measurement-sheet" className="w-[400px] bg-white p-10 font-sans text-[#1A1A1A] border-8 border-primary/10">
-          <div className="flex flex-col items-center mb-10 text-center">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-black tracking-tighter uppercase mb-1">{shopName || 'TailorVoice'}</h1>
-            <p className="text-[10px] font-black tracking-[0.2em] text-gray-400 uppercase">Measurement Sheet</p>
-          </div>
-
-          <div className="space-y-6 mb-10">
-            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
-              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Client</span>
-              <span className="text-xl font-bold text-primary">{customerName || '________________'}</span>
-            </div>
-            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
-              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Date</span>
-              <span className="text-sm font-bold">{new Date().toLocaleDateString()}</span>
-            </div>
-            <div className="flex justify-between items-end border-b-2 border-gray-50 pb-2">
-              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Unit</span>
-              <span className="text-sm font-bold uppercase">{unit}</span>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-[32px] p-6 space-y-4">
-            {allParts.map(part => (
-              <div key={part} className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{getLabel(part)}</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-black text-gray-800">{finalMeasurements[part] || '0'}</span>
-                  <span className="text-[9px] font-bold text-gray-300 uppercase">{unit}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 text-center">
-            <p className="text-[9px] font-black text-gray-200 uppercase tracking-widest">Built with TailorVoice AI 🧵</p>
-          </div>
-        </div>
       </div>
+
+      <NavBar />
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 
