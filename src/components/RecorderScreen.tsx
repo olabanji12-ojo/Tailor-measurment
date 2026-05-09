@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 export const RecorderScreen: React.FC = () => {
   const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
-  const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates } = useAppContext();
+  const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
 
   const [inputMode, setInputMode] = useState<'voice' | 'manual'>('voice');
@@ -160,13 +160,22 @@ export const RecorderScreen: React.FC = () => {
       });
       if (res.ok) {
         setIsSaved(true);
+        refreshSessions(1); // Trigger background sync
         setTimeout(() => {
-          setIsSaved(false); setIsSaving(false);
-          clearTranscript();
-          clearSession();
+          // We don't clear the session immediately if we want to show the calendar link
         }, 1500);
       }
     } catch { alert('Backend Error.'); }
+  };
+
+  const getGoogleCalendarUrl = () => {
+    if (!currentSession) return '';
+    const title = encodeURIComponent(`DELIVERY: ${currentSession.customerName} - ${currentSession.garments.join(', ')}`);
+    // Format YYYYMMDD
+    const dateStr = currentSession.deadline.replace(/-/g, '');
+    const dates = `${dateStr}/${dateStr}`; 
+    const details = encodeURIComponent(`Job for ${currentSession.customerName}.\nItems: ${currentSession.garments.join(', ')}\nTotal: ₦${currentSession.totalCost}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
   };
 
   const filledCount = Object.keys(activeMeasurements).length;
@@ -393,8 +402,33 @@ export const RecorderScreen: React.FC = () => {
             </div>
 
             <button onClick={handleSaveToBackend} disabled={isSaved} className={`mt-6 w-full h-16 rounded-full font-bold text-sm tracking-widest uppercase transition-all shadow-lg flex items-center justify-center ${!isSaved ? 'bg-[#0F172A] text-white hover:bg-black' : 'bg-[#ECFDF5] text-[#059669] shadow-none'}`}>
-              {isSaved ? '✓ SAVED SUCCESSFULLY' : 'ARCHIVE JOB'}
+              {isSaved ? '✓ ARCHIVED SUCCESSFULLY' : 'ARCHIVE JOB'}
             </button>
+
+            {isSaved && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                <a 
+                  href={getGoogleCalendarUrl()} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full h-14 bg-white border-2 border-gray-100 text-gray-900 rounded-full font-bold text-[11px] tracking-widest uppercase flex items-center justify-center gap-3 shadow-sm hover:border-[#0F172A] transition-all"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                  Add to Google Calendar
+                </a>
+                
+                <button 
+                  onClick={() => {
+                    setIsSaved(false); setIsSaving(false);
+                    clearTranscript();
+                    clearSession();
+                  }}
+                  className="w-full text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-gray-600 transition-colors"
+                >
+                  Finish Session
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

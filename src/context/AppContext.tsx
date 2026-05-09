@@ -41,7 +41,7 @@ interface AppContextType {
   // Global Data
   globalSessions: ClientProfile[];
   globalSessionsLoading: boolean;
-  refreshSessions: () => void;
+  refreshSessions: (targetPage?: number, isLoadMore?: boolean) => void;
   loadMore: () => void;
   hasMore: boolean;
 

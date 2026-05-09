@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import type { Gender } from '../utils/templates';
 
 export const SetupJobScreen: React.FC = () => {
   const { startSession, garmentTemplates } = useAppContext();
+  const { user } = useAuth();
+  
+  const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
+  const ownerName = user?.email.split('@')[0] || 'Tailor';
 
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
@@ -11,6 +16,11 @@ export const SetupJobScreen: React.FC = () => {
   const [totalCost, setTotalCost] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  });
 
   // Dynamically get garments based on selected gender
   const availableGarments = gender 
@@ -42,16 +52,11 @@ export const SetupJobScreen: React.FC = () => {
   const handleStart = () => {
     if (!name || !gender || selectedGarments.length === 0) return;
 
-    // Auto-set deadline to 1 week from now for quick entry
-    const deadlineDate = new Date();
-    deadlineDate.setDate(deadlineDate.getDate() + 7);
-    const deadlineString = deadlineDate.toISOString().split('T')[0];
-
     startSession({
       customerName: name,
       gender,
       garments: selectedGarments,
-      deadline: deadlineString,
+      deadline: deadline,
       totalCost: parseFloat(totalCost) || 0,
       amountPaid: parseFloat(amountPaid) || 0,
       photos
@@ -64,17 +69,14 @@ export const SetupJobScreen: React.FC = () => {
       {/* Top App Bar */}
       <div className="px-6 py-4 flex justify-between items-center bg-transparent">
         <div className="flex items-center gap-4">
-          <button className="text-gray-900">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
           <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
         </div>
         <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
-          <img src="https://ui-avatars.com/api/?name=Stitches&background=random" alt="Avatar" className="w-full h-full object-cover" />
+          {profileImage ? (
+            <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <img src={`https://ui-avatars.com/api/?name=${ownerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+          )}
         </div>
       </div>
 
@@ -171,7 +173,7 @@ export const SetupJobScreen: React.FC = () => {
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">FINANCIALS <span className="text-gray-400 font-normal normal-case ml-1">(Optional)</span></label>
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
-                <span className="absolute left-4 top-3 text-gray-400 font-medium">$</span>
+                <span className="absolute left-4 top-3 text-gray-400 font-medium">₦</span>
                 <input
                   type="number"
                   value={totalCost}
@@ -181,7 +183,7 @@ export const SetupJobScreen: React.FC = () => {
                 />
               </div>
               <div className="relative">
-                <span className="absolute left-4 top-3 text-gray-400 font-medium">$</span>
+                <span className="absolute left-4 top-3 text-gray-400 font-medium">₦</span>
                 <input
                   type="number"
                   value={amountPaid}
@@ -189,6 +191,22 @@ export const SetupJobScreen: React.FC = () => {
                   className="w-full h-12 bg-white rounded-[16px] pl-8 pr-4 text-sm font-bold text-gray-900 border-2 border-gray-100 focus:border-[#0F172A] focus:ring-0 outline-none transition-colors"
                   placeholder="Deposit Paid"
                 />
+              </div>
+            </div>
+          </section>
+
+          {/* Delivery Date */}
+          <section className={`space-y-4 transition-all duration-500 ${selectedGarments.length > 0 ? 'opacity-100 translate-y-0' : 'opacity-50 pointer-events-none translate-y-4'}`}>
+            <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">DELIVERY DEADLINE</label>
+            <div className="relative group">
+              <input
+                type="date"
+                value={deadline}
+                onChange={e => setDeadline(e.target.value)}
+                className="w-full h-12 bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#0F172A] focus:ring-0 px-0 transition-all duration-300 text-lg font-medium text-gray-900 outline-none cursor-pointer"
+              />
+              <div className="absolute right-0 top-3 text-gray-400 pointer-events-none">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               </div>
             </div>
           </section>

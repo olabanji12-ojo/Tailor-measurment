@@ -206,7 +206,7 @@ export const ClientProfileScreen: React.FC = () => {
             {isEditing ? (
               <div className="flex flex-col gap-2 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mt-2">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Total Cost ($)</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Total Cost (₦)</label>
                   <input 
                     type="number" 
                     value={editTotalCost} 
@@ -215,7 +215,7 @@ export const ClientProfileScreen: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Amount Paid ($)</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Amount Paid (₦)</label>
                   <input 
                     type="number" 
                     value={editAmountPaid} 
@@ -228,7 +228,7 @@ export const ClientProfileScreen: React.FC = () => {
               <>
                 {balanceOwed > 0 && (
                   <div className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-500 text-[11px] font-bold tracking-wide uppercase border border-red-100">
-                    Owes ${balanceOwed}
+                    Owes ₦{balanceOwed}
                   </div>
                 )}
                 {balanceOwed <= 0 && viewingProfile.total_cost > 0 && (

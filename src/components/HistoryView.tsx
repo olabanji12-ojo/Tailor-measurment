@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 interface MeasurementSession {
   id: string;
@@ -18,6 +19,10 @@ interface MeasurementSession {
 
 export const HistoryView: React.FC = () => {
   const { setViewingProfile, globalSessions, globalSessionsLoading, hasMore, loadMore } = useAppContext();
+  const { user } = useAuth();
+  
+  const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
+  const ownerName = user?.email.split('@')[0] || 'Tailor';
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
@@ -61,7 +66,11 @@ export const HistoryView: React.FC = () => {
           <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
         </div>
         <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shadow-sm">
-          <img src="https://ui-avatars.com/api/?name=Stitches&background=random" alt="Avatar" className="w-full h-full object-cover" />
+          {profileImage ? (
+            <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <img src={`https://ui-avatars.com/api/?name=${ownerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+          )}
         </div>
       </div>
 

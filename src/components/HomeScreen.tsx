@@ -1,17 +1,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 export const HomeScreen: React.FC = () => {
   const { shopName, setViewingProfile, globalSessions, globalSessionsLoading } = useAppContext();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  
+  const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
+  const ownerName = user?.email.split('@')[0] || 'Tailor';
 
   const totalRevenue = globalSessions.reduce((sum, s) => sum + (s.total_cost || 0), 0);
   const activeJobs = globalSessions.filter(s => !s.delivery_date || new Date(s.delivery_date) >= new Date()).length;
   
   const formattedRevenue = totalRevenue >= 1000 
-    ? `$${(totalRevenue/1000).toFixed(1)}k` 
-    : `$${totalRevenue}`;
+    ? `₦${(totalRevenue/1000).toFixed(1)}k` 
+    : `₦${totalRevenue}`;
 
   const recentClients = globalSessions.slice(0, 3);
 
@@ -29,16 +34,12 @@ export const HomeScreen: React.FC = () => {
       <div className="px-6 py-4 flex justify-between items-center bg-transparent">
         <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
         <div className="flex items-center gap-4">
-          <button className="text-gray-900">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
-            {/* Avatar Placeholder */}
-            <img src="https://ui-avatars.com/api/?name=Stitches&background=random" alt="Avatar" className="w-full h-full object-cover" />
+            {profileImage ? (
+              <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <img src={`https://ui-avatars.com/api/?name=${ownerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+            )}
           </div>
         </div>
       </div>
@@ -47,7 +48,7 @@ export const HomeScreen: React.FC = () => {
       <div className="px-6 mt-6">
         <h2 className="font-serif text-4xl leading-tight font-bold text-gray-900">
           Good Morning,<br />
-          {shopName || 'Stitches by Emma'}
+          {user?.shop_name || shopName}
         </h2>
         <p className="text-gray-500 mt-2 text-sm">
           {globalSessionsLoading ? 'Crunching numbers...' : `You have ${activeJobs} active jobs scheduled.`}

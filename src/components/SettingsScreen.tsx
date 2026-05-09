@@ -1,15 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import type { GarmentTemplate } from '../utils/templates';
 
 export const SettingsScreen: React.FC = () => {
   const { unit, setUnit, garmentTemplates, updateGarmentTemplate, shopName, saveShopName } = useAppContext();
+  const { user, logout } = useAuth();
   const [activeView, setActiveView] = useState<'main' | 'templates' | 'edit_template'>('main');
   const [isEditingShop, setIsEditingShop] = useState(false);
-  const [tempShopName, setTempShopName] = useState(shopName);
-  const [tempOwnerName, setTempOwnerName] = useState('Emma Richardson'); // For now, we'll store owner in local state or extend context later
+  const [tempShopName, setTempShopName] = useState(user?.shop_name || shopName);
+  const [tempOwnerName, setTempOwnerName] = useState(user?.email.split('@')[0] || 'Tailor'); 
+  const [profileImage, setProfileImage] = useState(localStorage.getItem(`profile_img_${user?.id}`) || '');
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<GarmentTemplate | null>(null);
   const [newPart, setNewPart] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'TailorVoice'); // Reusing your preset
+
+    try {
+      const res = await fetch('https://api.cloudinary.com/v1_1/dcpvhegxr/image/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      setProfileImage(data.secure_url);
+      localStorage.setItem(`profile_img_${user.id}`, data.secure_url);
+    } catch (err) {
+      alert("Failed to upload profile image.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleAddPart = () => {
     if (!newPart.trim() || !selectedTemplate) return;
@@ -117,10 +146,22 @@ export const SettingsScreen: React.FC = () => {
         {/* Top App Bar */}
         <div className="flex justify-between items-center bg-transparent mb-10">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shadow-sm">
-              <img src={`https://ui-avatars.com/api/?name=${tempOwnerName}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {isUploading ? (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <div className="w-4 h-4 border-2 border-[#0F172A] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : profileImage ? (
+                <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <img src={`https://ui-avatars.com/api/?name=${tempOwnerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+              )}
             </div>
-            <h1 className="font-serif text-2xl font-bold tracking-tight text-gray-900">{shopName}</h1>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfileUpload} />
+            <h1 className="font-serif text-2xl font-bold tracking-tight text-gray-900">{user?.shop_name || shopName}</h1>
           </div>
           <button className="text-gray-900 hover:scale-105 transition-transform">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -176,7 +217,7 @@ export const SettingsScreen: React.FC = () => {
                   {tempOwnerName}
                 </h2>
                 <p className="text-[13px] font-bold text-gray-400 uppercase tracking-widest">
-                  {shopName} Owner
+                  {user?.shop_name || shopName} Owner • {user?.email}
                 </p>
               </>
             )}
@@ -255,20 +296,18 @@ export const SettingsScreen: React.FC = () => {
 
             <div className="h-[1px] bg-gray-100 mx-6"></div>
 
-            {/* Notification Settings */}
-            <div className="flex justify-between items-center px-6 py-5 cursor-pointer hover:bg-gray-50 transition-colors">
+            {/* Logout */}
+            <div onClick={logout} className="flex justify-between items-center px-6 py-5 cursor-pointer hover:bg-red-50 transition-colors group">
               <div className="flex items-center gap-4">
-                <div className="text-gray-400">
+                <div className="text-gray-400 group-hover:text-red-500 transition-colors">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
                   </svg>
                 </div>
-                <span className="text-lg font-medium text-gray-900">Notification Settings</span>
+                <span className="text-lg font-medium text-gray-900 group-hover:text-red-600 transition-colors">Sign Out</span>
               </div>
-              <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-              </svg>
             </div>
 
           </div>
