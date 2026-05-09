@@ -108,9 +108,15 @@ export const HistoryView: React.FC = () => {
             <div className="w-20 h-20 bg-[#F8F9FA] rounded-full flex items-center justify-center text-4xl grayscale opacity-50">📚</div>
             <div>
               <h4 className="font-serif text-2xl font-bold text-gray-900">Archives are Empty</h4>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 max-w-[200px] leading-relaxed">
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 max-w-[200px] leading-relaxed mb-4">
                 Your completed boutique sessions will be secured here automatically.
               </p>
+              <button 
+                onClick={() => navigate('/measure')}
+                className="bg-[#0F172A] text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md"
+              >
+                Start New Job
+              </button>
             </div>
           </div>
         ) : (

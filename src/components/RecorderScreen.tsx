@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { playCaptureSound } from '../utils/soundUtils';
 
 export const RecorderScreen: React.FC = () => {
-  const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
+  const { isListening, isTranscribing, transcript, toggleListening, clearTranscript } = useWhisper();
   const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +117,9 @@ export const RecorderScreen: React.FC = () => {
     if (capturedSomething) {
       setTimeout(() => setLastCaptured(null), 2000);
     }
+
+    // CRITICAL: Clear transcript after processing so identical captures work next time
+    clearTranscript();
   }, [transcript]);
 
   const handleNumPadClear = () => {
@@ -377,8 +380,19 @@ export const RecorderScreen: React.FC = () => {
             </div>
           )}
 
+          {inputMode === 'voice' && isTranscribing && (
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center whitespace-nowrap">
+              <div className="flex gap-1 mb-1">
+                <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce"></div>
+                <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              </div>
+              <span className="text-[8px] font-bold text-[#D4AF37] uppercase tracking-widest">A.I. Thinking...</span>
+            </div>
+          )}
+
           {inputMode === 'voice' ? (
-            <div className="transform origin-bottom hover:scale-105 transition-transform">
+            <div className={`transform origin-bottom hover:scale-105 transition-all ${isTranscribing ? 'opacity-50 grayscale' : ''}`}>
                <RecordingButton isListening={isListening} onClick={toggleListening} />
             </div>
           ) : (

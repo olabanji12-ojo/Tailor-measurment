@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 export const useWhisper = () => {
   const { token } = useAuth();
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   
@@ -25,7 +26,9 @@ export const useWhisper = () => {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setIsTranscribing(true);
         await sendToWhisper(audioBlob);
+        setIsTranscribing(false);
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -73,12 +76,14 @@ export const useWhisper = () => {
     if (isListening) {
       stopRecording();
     } else {
+      setTranscript(''); // Clear previous on start
       startRecording();
     }
   };
 
   return {
     isListening,
+    isTranscribing,
     transcript,
     error,
     toggleListening,

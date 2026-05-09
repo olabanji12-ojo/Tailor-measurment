@@ -135,7 +135,7 @@ export const HomeScreen: React.FC = () => {
                 <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">Start your first session to see records here.</p>
               </div>
               <button 
-                onClick={() => navigate('/setup')}
+                onClick={() => navigate('/measure')}
                 className="mt-2 bg-[#0F172A] text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg"
               >
                 Start Measurement
