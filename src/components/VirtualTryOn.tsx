@@ -54,7 +54,7 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
     });
 
     selfieSegmentation.setOptions({
-      modelSelection: 1, // 0 for general, 1 for landscape/better detail
+      modelSelection: 0, // 0 for faster processing, 1 for higher detail
     });
 
     selfieSegmentation.onResults((results: any) => {
