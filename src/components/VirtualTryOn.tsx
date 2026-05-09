@@ -13,19 +13,21 @@ interface StyleTemplate {
   id: string;
   name: string;
   url: string;
-  type: 'overlay' | 'native'; // overlay = external garment, native = tint current clothes
+  type: 'overlay' | 'native';
 }
 
 export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName }) => {
-  const [image, setImage] = useState<string | null>(null);
+  const [clientImage, setClientImage] = useState<string | null>(null);
+  const [fabricImage, setFabricImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedColor, setSelectedColor] = useState('#0F172A');
+  const [selectedColor, setSelectedColor] = useState<string | null>(null); // Null means keep original fabric colors
   const [activeStyle, setActiveStyle] = useState<StyleTemplate>({ id: 'native', name: 'Original', url: '', type: 'native' });
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const poseRef = useRef<any>(null); // Store pose landmarks
+  const fabricRef = useRef<HTMLImageElement | null>(null);
+  const poseRef = useRef<any>(null);
 
   const styles: StyleTemplate[] = [
     { id: 'native', name: 'Original', url: '', type: 'native' },
@@ -42,40 +44,42 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
     { name: 'Plum', hex: '#581C87' },
   ];
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'client' | 'fabric') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setImage(ev.target?.result as string);
-        processImage(ev.target?.result as string);
+        const dataUrl = ev.target?.result as string;
+        if (type === 'client') {
+          setClientImage(dataUrl);
+          processClientImage(dataUrl);
+        } else {
+          setFabricImage(dataUrl);
+          const fImg = new Image();
+          fImg.src = dataUrl;
+          fImg.onload = () => {
+            fabricRef.current = fImg;
+            if (clientImage) renderOutput();
+          };
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const processImage = async (imageSrc: string) => {
+  const processClientImage = async (imageSrc: string) => {
     setIsProcessing(true);
-    
     const img = new Image();
     img.src = imageSrc;
     await new Promise((resolve) => (img.onload = resolve));
     imageRef.current = img;
 
-    // 1. Setup Pose Detection (Finding Anchors)
-    const pose = new Pose({
-      locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-    });
+    const pose = new Pose({ locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
     pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
-    pose.onResults((results: any) => {
-      poseRef.current = results.poseLandmarks;
-    });
+    pose.onResults((results: any) => { poseRef.current = results.poseLandmarks; });
     await pose.send({ image: img });
 
-    // 2. Setup Selfie Segmentation (The Eraser)
-    const selfieSegmentation = new SelfieSegmentation({
-      locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
-    });
+    const selfieSegmentation = new SelfieSegmentation({ locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}` });
     selfieSegmentation.setOptions({ modelSelection: 0 });
     selfieSegmentation.onResults((results: any) => {
       if (maskRef.current) {
@@ -89,7 +93,6 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
       }
       setIsProcessing(false);
     });
-
     await selfieSegmentation.send({ image: img });
   };
 
@@ -104,153 +107,166 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
 
     canvas.width = img.width;
     canvas.height = img.height;
-
-    // 1. Draw Original Image
     ctx.drawImage(img, 0, 0);
 
-    if (activeStyle.type === 'native') {
-      // MODE: Color Swap Original Clothes
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = img.width;
-      tempCanvas.height = img.height;
-      const tCtx = tempCanvas.getContext('2d');
-      if (tCtx) {
-        tCtx.fillStyle = selectedColor;
-        tCtx.fillRect(0, 0, img.width, img.height);
-        tCtx.globalCompositeOperation = 'destination-in';
-        tCtx.drawImage(mask, 0, 0);
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.7;
-        ctx.drawImage(tempCanvas, 0, 0);
+    // Create Pattern/Color Layer
+    const overlayCanvas = document.createElement('canvas');
+    overlayCanvas.width = img.width;
+    overlayCanvas.height = img.height;
+    const oCtx = overlayCanvas.getContext('2d');
+    if (!oCtx) return;
+
+    if (fabricRef.current) {
+      // Draw Tiled Fabric Pattern
+      const pattern = oCtx.createPattern(fabricRef.current, 'repeat');
+      if (pattern) {
+        oCtx.fillStyle = pattern;
+        oCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
+    } else if (selectedColor) {
+      // Draw Solid Color
+      oCtx.fillStyle = selectedColor;
+      oCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+
+    if (selectedColor && fabricRef.current) {
+      // Apply Tint on top of Fabric
+      oCtx.globalCompositeOperation = 'multiply';
+      oCtx.fillStyle = selectedColor;
+      oCtx.globalAlpha = 0.5;
+      oCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      oCtx.globalAlpha = 1.0;
+      oCtx.globalCompositeOperation = 'source-over';
+    }
+
+    if (activeStyle.type === 'native') {
+      oCtx.globalCompositeOperation = 'destination-in';
+      oCtx.drawImage(mask, 0, 0);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(overlayCanvas, 0, 0);
     } else {
-      // MODE: Style Overlay (The "Pro" Way)
-      // 1. "Erase" the customer's current clothes using the mask
+      // Erase original clothes
       ctx.globalCompositeOperation = 'destination-out';
       ctx.drawImage(mask, 0, 0);
       ctx.globalCompositeOperation = 'destination-over';
-      ctx.drawImage(img, 0, 0); // Put background back
+      ctx.drawImage(img, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
 
-      // 2. Load and Draw the Style Template
+      // Draw Template with Pattern
       const templateImg = new Image();
       templateImg.crossOrigin = "anonymous";
       templateImg.src = activeStyle.url;
       await new Promise((resolve) => (templateImg.onload = resolve));
 
-      // 3. Anchor logic using Pose Landmarks
       const landmarks = poseRef.current;
       if (landmarks) {
         const leftShoulder = landmarks[11];
         const rightShoulder = landmarks[12];
-        
-        // Calculate Scale and Position
         const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x) * img.width;
         const centerX = ((leftShoulder.x + rightShoulder.x) / 2) * img.width;
         const centerY = ((leftShoulder.y + rightShoulder.y) / 2) * img.height;
 
-        // Draw Template (Tinted)
         const styleCanvas = document.createElement('canvas');
         styleCanvas.width = templateImg.width;
         styleCanvas.height = templateImg.height;
         const sCtx = styleCanvas.getContext('2d');
         if (sCtx) {
           sCtx.drawImage(templateImg, 0, 0);
-          sCtx.globalCompositeOperation = 'multiply';
-          sCtx.fillStyle = selectedColor;
-          sCtx.fillRect(0, 0, styleCanvas.width, styleCanvas.height);
-          sCtx.globalCompositeOperation = 'destination-in';
-          sCtx.drawImage(templateImg, 0, 0);
+          sCtx.globalCompositeOperation = 'source-atop';
+          // Draw the pattern/tint onto the style
+          const patternCanvas = document.createElement('canvas');
+          patternCanvas.width = styleCanvas.width;
+          patternCanvas.height = styleCanvas.height;
+          const pCtx = patternCanvas.getContext('2d');
+          if (pCtx) {
+            if (fabricRef.current) {
+              const p = pCtx.createPattern(fabricRef.current, 'repeat');
+              if (p) { pCtx.fillStyle = p; pCtx.fillRect(0, 0, patternCanvas.width, patternCanvas.height); }
+            } else {
+              pCtx.fillStyle = selectedColor || '#0F172A';
+              pCtx.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
+            }
+            sCtx.drawImage(patternCanvas, 0, 0);
+          }
         }
 
-        // Draw on main canvas
-        const targetWidth = shoulderWidth * 2.5; // Scale the suit template
+        const targetWidth = shoulderWidth * 2.5;
         const targetHeight = (targetWidth / templateImg.width) * templateImg.height;
-        ctx.drawImage(
-          styleCanvas, 
-          centerX - targetWidth / 2, 
-          centerY - targetHeight * 0.15, // Offset to neck
-          targetWidth, 
-          targetHeight
-        );
+        ctx.drawImage(styleCanvas, centerX - targetWidth / 2, centerY - targetHeight * 0.15, targetWidth, targetHeight);
       }
     }
-    
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1.0;
   };
 
-  useEffect(() => {
-    if (image && !isProcessing) renderOutput();
-  }, [selectedColor, activeStyle]);
+  useEffect(() => { if (clientImage && !isProcessing) renderOutput(); }, [selectedColor, activeStyle, fabricImage]);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
-      <div className="px-6 py-4 flex justify-between items-center border-b border-gray-100">
+    <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in slide-in-from-bottom duration-500 overflow-y-auto">
+      <div className="px-6 py-4 flex justify-between items-center border-b border-gray-100 bg-white sticky top-0 z-10">
         <button onClick={onClose} className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Close Lab</button>
         <div className="text-center">
-          <h3 className="font-serif text-xl font-bold text-gray-900">Virtual Try-On</h3>
+          <h3 className="font-serif text-xl font-bold text-gray-900">Composition Lab</h3>
           <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">{clientName}</p>
         </div>
         <div className="w-12"></div>
       </div>
 
-      <div className="flex-1 relative bg-gray-50 flex flex-col items-center justify-center p-6 overflow-hidden">
-        {!image ? (
-          <label className="w-full max-w-sm aspect-[3/4] bg-white rounded-[40px] border-4 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-[#0F172A] hover:bg-white transition-all shadow-sm">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            </div>
-            <span className="text-[11px] font-bold uppercase tracking-widest">Upload Client Photo</span>
-            <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
-          </label>
+      <div className="flex-1 p-6 flex flex-col gap-8 max-w-lg mx-auto w-full">
+        {/* Step 1: Side-by-Side Uploads */}
+        {!clientImage || !fabricImage ? (
+          <div className="grid grid-cols-2 gap-4 h-60">
+            <label className={`relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all cursor-pointer ${clientImage ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-[#0F172A]'}`}>
+              <div className="text-center">
+                <p className="text-[9px] font-bold uppercase tracking-widest mb-1">{clientImage ? '✓ Client Ready' : '1. Upload Client'}</p>
+                {!clientImage && <svg className="mx-auto text-gray-300" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>}
+              </div>
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'client')} />
+            </label>
+
+            <label className={`relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all cursor-pointer ${fabricImage ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-[#0F172A]'}`}>
+              <div className="text-center">
+                <p className="text-[9px] font-bold uppercase tracking-widest mb-1">{fabricImage ? '✓ Fabric Ready' : '2. Upload Fabric'}</p>
+                {!fabricImage && <svg className="mx-auto text-gray-300" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>}
+              </div>
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'fabric')} />
+            </label>
+          </div>
         ) : (
-          <div className="relative w-full max-w-sm aspect-[3/4] rounded-[40px] overflow-hidden shadow-2xl bg-white">
+          /* Step 2: The Combined Preview */
+          <div className="relative aspect-[3/4] rounded-[40px] overflow-hidden shadow-2xl bg-white border-8 border-white">
             <canvas ref={canvasRef} className="w-full h-full object-cover" />
             <canvas ref={maskRef} className="hidden" />
             {isProcessing && (
               <div className="absolute inset-0 bg-[#0F172A]/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                 <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-[11px] font-bold uppercase tracking-widest">A.I. Aligning Garment...</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest">A.I. Stitching Composition...</p>
               </div>
             )}
+            <button onClick={() => { setClientImage(null); setFabricImage(null); }} className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest shadow-lg">Reset</button>
           </div>
         )}
-      </div>
 
-      <div className={`p-6 bg-white border-t border-gray-100 transition-all duration-500 ${image && !isProcessing ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}>
-        {/* Style Selector */}
-        <div className="mb-6">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Choose Style Template</span>
-          <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-            {styles.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setActiveStyle(s)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full border-2 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                  activeStyle.id === s.id ? 'bg-[#0F172A] border-[#0F172A] text-white' : 'bg-white border-gray-100 text-gray-400'
-                }`}
-              >
-                {s.name}
-              </button>
-            ))}
+        {/* Step 3: Refinement Controls */}
+        <div className={`space-y-8 transition-all duration-700 ${clientImage && fabricImage && !isProcessing ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-10'}`}>
+          <div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Refine Style</span>
+            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+              {styles.map(s => (
+                <button key={s.id} onClick={() => setActiveStyle(s)} className={`flex-shrink-0 px-5 py-2.5 rounded-full border-2 text-[10px] font-bold uppercase tracking-widest transition-all ${activeStyle.id === s.id ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400'}`}>{s.name}</button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Color Selector */}
-        <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Select Fabric Color</span>
-          <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-            {colors.map((c) => (
-              <button
-                key={c.hex}
-                onClick={() => setSelectedColor(c.hex)}
-                className={`flex-shrink-0 w-12 h-12 rounded-full border-4 transition-all ${
-                  selectedColor === c.hex ? 'border-[#0F172A] scale-110 shadow-lg' : 'border-white shadow-sm'
-                }`}
-                style={{ backgroundColor: c.hex }}
-              />
-            ))}
+          <div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Apply Color Tint (Optional)</span>
+            <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+              <button onClick={() => setSelectedColor(null)} className={`flex-shrink-0 w-12 h-12 rounded-full border-2 flex items-center justify-center text-[8px] font-bold uppercase tracking-tighter ${!selectedColor ? 'border-[#0F172A] bg-gray-100' : 'border-gray-200'}`}>Raw</button>
+              {colors.map((c) => (
+                <button key={c.hex} onClick={() => setSelectedColor(c.hex)} className={`flex-shrink-0 w-12 h-12 rounded-full border-4 transition-all ${selectedColor === c.hex ? 'border-[#0F172A] scale-110 shadow-lg' : 'border-white shadow-sm'}`} style={{ backgroundColor: c.hex }} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
