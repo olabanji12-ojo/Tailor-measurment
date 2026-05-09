@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@tailwindcss/vite": "^4.2.4",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",

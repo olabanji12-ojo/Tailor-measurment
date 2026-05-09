@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-// @ts-ignore
-import * as SelfieSegmentationModule from '@mediapipe/selfie_segmentation';
 
-const SelfieSegmentation = (SelfieSegmentationModule as any).SelfieSegmentation || (window as any).SelfieSegmentation;
+// Using the global SelfieSegmentation from index.html CDN
+const SelfieSegmentation = (window as any).SelfieSegmentation;
 
 interface VirtualTryOnProps {
   onClose: () => void;
