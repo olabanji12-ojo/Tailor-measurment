@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useWhisper } from '../hooks/useWhisper';
 import { RecordingButton } from './RecordingButton';
+import { VirtualTryOn } from './VirtualTryOn';
 
 export const ClientProfileScreen: React.FC = () => {
   const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, findPartByLabel } = useAppContext();
@@ -20,6 +21,7 @@ export const ClientProfileScreen: React.FC = () => {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [showTryOn, setShowTryOn] = useState(false);
 
   // Flatten nested data for easy editing
   const flattenData = (obj: any, prefix = ''): Record<string, number> => {
@@ -389,6 +391,30 @@ export const ClientProfileScreen: React.FC = () => {
         </div>
       )}
 
+      {/* A.I. Design Tools */}
+      <div className="px-1 mb-10">
+        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">A.I. Design Tools</h3>
+        <button 
+          onClick={() => setShowTryOn(true)}
+          className="w-full bg-gradient-to-r from-[#0F172A] to-[#1e293b] rounded-[24px] p-6 shadow-xl flex items-center gap-4 text-white group active:scale-95 transition-all"
+        >
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center group-hover:bg-white/20 transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <div className="text-left">
+            <h4 className="font-serif text-xl font-bold mb-0.5">Virtual Try-On</h4>
+            <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Preview Fabrics & Colors</p>
+          </div>
+          <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </button>
+      </div>
+
       {/* Active Order Pill */}
       <div className="px-1 mb-20">
         <div className="bg-[#0F172A] rounded-[32px] p-6 shadow-xl flex justify-between items-center text-white cursor-pointer hover:bg-black transition-colors">
@@ -418,6 +444,13 @@ export const ClientProfileScreen: React.FC = () => {
         </div>
       )}
 
+      {/* Virtual Try-On Lab Overlay */}
+      {showTryOn && (
+        <VirtualTryOn 
+          clientName={viewingProfile.customer_name} 
+          onClose={() => setShowTryOn(false)} 
+        />
+      )}
     </div>
   );
 };

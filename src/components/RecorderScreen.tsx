@@ -5,6 +5,7 @@ import { RecordingButton } from './RecordingButton';
 import { NumPad } from './NumPad';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { playCaptureSound } from '../utils/soundUtils';
 
 export const RecorderScreen: React.FC = () => {
   const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
@@ -16,6 +17,7 @@ export const RecorderScreen: React.FC = () => {
   const [isAddingGarment, setIsAddingGarment] = useState(false);
   const [isAddingCustomPart, setIsAddingCustomPart] = useState(false);
   const [newCustomPart, setNewCustomPart] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
   
   const [measurementsByGarment, setMeasurementsByGarment] = useState<Record<string, Record<string, number>>>(() => {
     const init: Record<string, Record<string, number>> = {};
@@ -46,46 +48,74 @@ export const RecorderScreen: React.FC = () => {
   useEffect(() => {
     if (inputMode !== 'voice' || !transcript || !activeGarmentName) return;
     
-    const { structured, standaloneNumbers } = parseMeasurements(transcript);
-    const words = transcript.toLowerCase().split(/\s+/);
-    
-    let newlyCapturedPart: string | null = null;
+    const result = parseMeasurements(transcript);
+    let capturedSomething = false;
 
-    for (let i = 0; i < words.length - 1; i++) {
-      const matchedPart = findPartByLabel(words[i]);
-      const num = parseFloat(words[i + 1]);
-      if (matchedPart && !isNaN(num)) {
-        structured[matchedPart] = num;
-        newlyCapturedPart = matchedPart;
-      }
-    }
-
-    setMeasurementsByGarment(prev => {
-      const currentTabMeasurements = { ...(prev[activeGarmentName] || {}), ...structured };
-      
-      if (standaloneNumbers.length > 0) {
-        let idx = 0;
-        for (const part of activeParts) {
-          if (idx >= standaloneNumbers.length) break;
-          if (!currentTabMeasurements[part]) { 
-            currentTabMeasurements[part] = standaloneNumbers[idx];
-            newlyCapturedPart = part;
-            idx++; 
+    // Handle Commands
+    result.commands.forEach(cmd => {
+      switch (cmd.type) {
+        case 'finish':
+          setIsSaving(true);
+          break;
+        case 'clear':
+          if (cmd.target) {
+            const target = findPartByLabel(cmd.target);
+            if (target) {
+              setMeasurementsByGarment(prev => ({
+                ...prev,
+                [activeGarmentName]: { ...prev[activeGarmentName], [target]: 0 }
+              }));
+              // We delete it from the object effectively
+              setMeasurementsByGarment(prev => {
+                const next = { ...prev[activeGarmentName] };
+                delete next[target];
+                return { ...prev, [activeGarmentName]: next };
+              });
+            }
+          } else {
+            setLastCaptured(null);
           }
-        }
+          break;
+        case 'next':
+          const nextEmptyIdx = activeParts.findIndex(p => !activeMeasurements[p]);
+          if (nextEmptyIdx !== -1) {
+            // Simplified: jump focus to next empty (no explicit focus yet, but we'll pulse it)
+          }
+          break;
+        case 'add':
+          if (cmd.target && cmd.value) {
+            const safePart = cmd.target.toLowerCase().replace(/\s+/g, '_');
+            addCustomPart(safePart);
+            setMeasurementsByGarment(prev => ({
+              ...prev,
+              [activeGarmentName]: { ...prev[activeGarmentName], [safePart]: cmd.value! }
+            }));
+            setLastCaptured(safePart);
+            playCaptureSound();
+            capturedSomething = true;
+          }
+          break;
       }
-
-      return {
-        ...prev,
-        [activeGarmentName]: currentTabMeasurements
-      };
     });
 
-    if (newlyCapturedPart) {
-      setLastCaptured(newlyCapturedPart);
-      setTimeout(() => setLastCaptured(null), 3000); // Clear the green text after 3 seconds
+    // Handle Measurements
+    Object.entries(result.measurements).forEach(([part, val]) => {
+      const targetKey = activeParts.find(p => p.toLowerCase() === part.toLowerCase());
+      if (targetKey && activeMeasurements[targetKey] !== val) {
+        setMeasurementsByGarment(prev => ({
+          ...prev,
+          [activeGarmentName]: { ...prev[activeGarmentName], [targetKey]: val }
+        }));
+        setLastCaptured(targetKey);
+        playCaptureSound();
+        capturedSomething = true;
+      }
+    });
+
+    if (capturedSomething) {
+      setTimeout(() => setLastCaptured(null), 2000);
     }
-  }, [transcript, inputMode, findPartByLabel, activeParts, activeGarmentName]);
+  }, [transcript]);
 
   const handleNumPadClear = () => {
     if (!numPadPart || !activeGarmentName) return;
@@ -194,9 +224,17 @@ export const RecorderScreen: React.FC = () => {
               </p>
               <h2 className="font-serif text-3xl font-bold text-gray-900 tracking-tight">{currentSession.customerName} Session</h2>
             </div>
-            <button onClick={() => { if(window.confirm('Cancel current job?')) clearSession() }} className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-white/50 px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-95">
-              Cancel
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowHelp(true)}
+                className="w-10 h-10 rounded-full bg-white/50 backdrop-blur-sm border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#0F172A] transition-all shadow-sm"
+              >
+                <span className="text-lg font-bold">?</span>
+              </button>
+              <button onClick={() => { if(window.confirm('Cancel current job?')) clearSession() }} className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-white/50 px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-95">
+                Cancel
+              </button>
+            </div>
           </div>
 
           {/* GARMENT TABS */}
@@ -268,6 +306,7 @@ export const RecorderScreen: React.FC = () => {
                 key={part}
                 onClick={() => setNumPadPart(part)}
                 className={`w-full px-6 py-5 flex justify-between items-center transition-all duration-300 cursor-pointer 
+                  ${isJustCaptured ? 'animate-capture-pulse' : ''}
                   ${value 
                     ? 'bg-white rounded-xl shadow-sm border border-white' 
                     : isManualActive
@@ -517,6 +556,49 @@ export const RecorderScreen: React.FC = () => {
         </div>
       )}
 
+      {/* Voice Help Overlay */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-[#0F172A]/80 backdrop-blur-md" onClick={() => setShowHelp(false)}></div>
+          <div className="bg-white w-full max-w-sm rounded-[40px] p-8 relative animate-in zoom-in-95 duration-300 shadow-2xl">
+            <h3 className="font-serif text-3xl font-bold text-gray-900 mb-2">Speak to Atelier</h3>
+            <p className="text-gray-500 text-sm mb-8 font-medium">Your AI assistant is listening for your intent.</p>
+            
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Standard Capture</p>
+                  <p className="text-gray-700 font-bold">"Waist 34", "Shoulder 20"</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-green-50 text-green-500 flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Voice Commands</p>
+                  <p className="text-gray-700 font-bold">"Next", "Clear Waist", "Finish"</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Add Custom Parts</p>
+                  <p className="text-gray-700 font-bold">"Add Neck Drop 5"</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowHelp(false)}
+              className="mt-10 w-full h-14 bg-[#0F172A] text-white rounded-full font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
