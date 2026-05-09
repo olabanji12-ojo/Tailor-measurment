@@ -104,8 +104,14 @@ export const HistoryView: React.FC = () => {
             <p className="text-gray-400 text-sm mt-2 font-bold tracking-widest uppercase">Loading Archives...</p>
           </div>
         ) : filteredSessions.length === 0 ? (
-          <div className="text-center py-10 bg-[#F8F9FA] rounded-[24px] border border-dashed border-gray-200">
-            <p className="text-gray-400 text-sm font-bold tracking-widest uppercase">No Records Found</p>
+          <div className="text-center py-20 bg-white rounded-[32px] border border-dashed border-gray-200 px-6 flex flex-col items-center gap-4">
+            <div className="w-20 h-20 bg-[#F8F9FA] rounded-full flex items-center justify-center text-4xl grayscale opacity-50">📚</div>
+            <div>
+              <h4 className="font-serif text-2xl font-bold text-gray-900">Archives are Empty</h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 max-w-[200px] leading-relaxed">
+                Your completed boutique sessions will be secured here automatically.
+              </p>
+            </div>
           </div>
         ) : (
           filteredSessions.map(session => {

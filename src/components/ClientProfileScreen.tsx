@@ -22,6 +22,7 @@ export const ClientProfileScreen: React.FC = () => {
   const [newLabel, setNewLabel] = useState('');
   const [newValue, setNewValue] = useState('');
   const [showTryOn, setShowTryOn] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Flatten nested data for easy editing
   const flattenData = (obj: any, prefix = ''): Record<string, number> => {
@@ -180,7 +181,7 @@ export const ClientProfileScreen: React.FC = () => {
   }));
 
   return (
-    <div className="flex flex-col min-h-full pb-32 bg-[#FDFDFD]">
+    <div className="flex flex-col min-h-full pb-44 bg-[#FDFDFD]">
       
       {/* Top App Bar */}
       <div className="-mx-6 -mt-6 px-6 py-4 flex justify-between items-center bg-transparent mb-4">
@@ -301,15 +302,33 @@ export const ClientProfileScreen: React.FC = () => {
       {/* Body Measurements */}
       {measurements.length > 0 && (
         <div className="mb-10 px-1">
-          <div className="flex justify-between items-baseline mb-4">
-            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Body Measurements</h3>
-            <span className="text-xs text-gray-400 italic">Updated {displayDate}</span>
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Body Measurements</h3>
+              <span className="text-[10px] text-gray-400 italic">Updated {displayDate}</span>
+            </div>
+            
+            {/* Minimal Search Button/Input */}
+            <div className="relative flex items-center">
+              <input 
+                type="text" 
+                placeholder="Search part..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className={`transition-all duration-500 bg-[#F8F9FA] rounded-full text-[10px] font-bold px-4 py-2 border-none focus:ring-2 focus:ring-[#0F172A]/10 outline-none ${searchTerm ? 'w-32 opacity-100' : 'w-24 opacity-60 hover:opacity-100'}`}
+              />
+              <svg className="absolute right-3 w-3 h-3 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
             {isEditing ? (
               <>
-                {Object.entries(editMeasurements).map(([label, value], idx) => (
+                {Object.entries(editMeasurements)
+                  .filter(([label]) => label.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(([label, value], idx) => (
                   <div 
                     key={idx} 
                     className={`bg-white border rounded-[20px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between transition-all duration-300 ${
@@ -377,15 +396,25 @@ export const ClientProfileScreen: React.FC = () => {
                 )}
               </>
             ) : (
-              measurements.map((m, idx) => (
-                <div key={idx} className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 leading-tight">{m.label}</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-gray-900">{m.value}</span>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">{viewingProfile.unit || 'in'}</span>
+              measurements
+                .filter(m => m.label.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map((m, idx) => (
+                  <div key={idx} className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 leading-tight">{m.label}</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-gray-900">{m.value}</span>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">{viewingProfile.unit || 'in'}</span>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))
+            )}
+            
+            {/* Search Empty State */}
+            {searchTerm && measurements.filter(m => m.label.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+              <div className="col-span-2 py-10 text-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">No match for "{searchTerm}"</p>
+                <button onClick={() => setSearchTerm('')} className="mt-2 text-[#0F172A] text-[10px] font-bold underline underline-offset-4 uppercase tracking-widest">Clear Search</button>
+              </div>
             )}
           </div>
         </div>

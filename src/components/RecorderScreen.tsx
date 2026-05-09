@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWhisper } from '../hooks/useWhisper';
 import { parseMeasurements } from '../utils/parser';
 import { RecordingButton } from './RecordingButton';
@@ -11,6 +12,7 @@ export const RecorderScreen: React.FC = () => {
   const { isListening, transcript, toggleListening, clearTranscript } = useWhisper();
   const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [inputMode, setInputMode] = useState<'voice' | 'manual'>('voice');
   const [activeTabIdx, setActiveTabIdx] = useState(0);
@@ -192,8 +194,11 @@ export const RecorderScreen: React.FC = () => {
         setIsSaved(true);
         refreshSessions(1); // Trigger background sync
         setTimeout(() => {
-          // We don't clear the session immediately if we want to show the calendar link
-        }, 1500);
+          setIsSaving(false);
+          clearTranscript();
+          clearSession();
+          navigate('/');
+        }, 3500); // 3.5 seconds of celebration
       }
     } catch { alert('Backend Error.'); }
   };
@@ -446,6 +451,9 @@ export const RecorderScreen: React.FC = () => {
 
             {isSaved && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                <p className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Redirecting to Atelier Home...
+                </p>
                 <a 
                   href={getGoogleCalendarUrl()} 
                   target="_blank" 
@@ -455,17 +463,6 @@ export const RecorderScreen: React.FC = () => {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                   Add to Google Calendar
                 </a>
-                
-                <button 
-                  onClick={() => {
-                    setIsSaved(false); setIsSaving(false);
-                    clearTranscript();
-                    clearSession();
-                  }}
-                  className="w-full text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] hover:text-gray-600 transition-colors"
-                >
-                  Finish Session
-                </button>
               </div>
             )}
           </div>
@@ -596,6 +593,26 @@ export const RecorderScreen: React.FC = () => {
             >
               Got it
             </button>
+          </div>
+        </div>
+      )}
+      {/* Success Celebration Overlay */}
+      {isSaved && (
+        <div className="fixed inset-0 z-[300] bg-[#0F172A] flex flex-col items-center justify-center p-10 animate-in fade-in duration-500">
+          <div className="relative mb-10">
+            <div className="absolute inset-0 bg-[#D4AF37] rounded-full blur-3xl opacity-20 animate-pulse"></div>
+            <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] relative animate-in zoom-in duration-700">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          </div>
+          <h2 className="font-serif text-4xl font-bold text-white mb-2 text-center">Atelier Success</h2>
+          <p className="text-[#D4AF37] text-[11px] font-bold uppercase tracking-[0.3em] text-center mb-8">
+            {currentSession?.customerName}'s Data Secured
+          </p>
+          <div className="w-40 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-[#D4AF37] animate-progress-fast"></div>
           </div>
         </div>
       )}

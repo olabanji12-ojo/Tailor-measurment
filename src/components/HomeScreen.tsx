@@ -128,8 +128,18 @@ export const HomeScreen: React.FC = () => {
           {globalSessionsLoading ? (
             <p className="text-xs text-gray-400 font-medium">Loading records...</p>
           ) : recentClients.length === 0 ? (
-            <div className="bg-[#F8F9FA] rounded-[24px] border border-dashed border-gray-200 p-6 text-center">
-              <p className="text-xs text-gray-400 font-bold tracking-widest uppercase">No Clients Yet</p>
+            <div className="bg-white rounded-[32px] p-10 border border-dashed border-gray-200 text-center flex flex-col items-center gap-4">
+              <div className="w-16 h-16 bg-[#F8F9FA] rounded-full flex items-center justify-center text-3xl">🪡</div>
+              <div>
+                <h4 className="font-serif text-xl font-bold text-gray-900">Welcome to Your Atelier</h4>
+                <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">Start your first session to see records here.</p>
+              </div>
+              <button 
+                onClick={() => navigate('/setup')}
+                className="mt-2 bg-[#0F172A] text-white px-8 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg"
+              >
+                Start Measurement
+              </button>
             </div>
           ) : (
             recentClients.map((client, i) => (

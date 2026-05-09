@@ -213,11 +213,11 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
         <div className="w-12"></div>
       </div>
 
-      <div className="flex-1 p-6 flex flex-col gap-8 max-w-lg mx-auto w-full">
+      <div className="flex-1 p-6 flex flex-col gap-8 max-w-lg mx-auto w-full pb-32">
         {/* Step 1: Side-by-Side Uploads */}
         {!clientImage || !fabricImage ? (
-          <div className="grid grid-cols-2 gap-4 h-60">
-            <label className={`relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all cursor-pointer ${clientImage ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-[#0F172A]'}`}>
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
+            <label className={`relative h-52 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all cursor-pointer ${clientImage ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-[#0F172A]'}`}>
               <div className="text-center">
                 <p className="text-[9px] font-bold uppercase tracking-widest mb-1">{clientImage ? '✓ Client Ready' : '1. Upload Client'}</p>
                 {!clientImage && <svg className="mx-auto text-gray-300" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>}
