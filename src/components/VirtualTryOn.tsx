@@ -75,15 +75,19 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
     imageRef.current = img;
 
     const pose = new Pose({ locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
-    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
+    pose.setOptions({ 
+      modelComplexity: 0, // Lite model for mobile stability
+      smoothLandmarks: true, 
+      minDetectionConfidence: 0.5 
+    });
     pose.onResults((results: any) => { poseRef.current = results.poseLandmarks; });
     await pose.send({ image: img });
 
     const selfieSegmentation = new SelfieSegmentation({ locateFile: (file: any) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}` });
-    selfieSegmentation.setOptions({ modelSelection: 0 });
+    selfieSegmentation.setOptions({ modelSelection: 0 }); // 0 = General (faster)
     selfieSegmentation.onResults((results: any) => {
       if (maskRef.current) {
-        const maskCtx = maskRef.current.getContext('2d');
+        const maskCtx = maskRef.current.getContext('2d', { willReadFrequently: true });
         if (maskCtx) {
           maskRef.current.width = results.image.width;
           maskRef.current.height = results.image.height;
@@ -174,7 +178,6 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
         if (sCtx) {
           sCtx.drawImage(templateImg, 0, 0);
           sCtx.globalCompositeOperation = 'source-atop';
-          // Draw the pattern/tint onto the style
           const patternCanvas = document.createElement('canvas');
           patternCanvas.width = styleCanvas.width;
           patternCanvas.height = styleCanvas.height;
@@ -194,6 +197,12 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName 
         const targetWidth = shoulderWidth * 2.5;
         const targetHeight = (targetWidth / templateImg.width) * templateImg.height;
         ctx.drawImage(styleCanvas, centerX - targetWidth / 2, centerY - targetHeight * 0.15, targetWidth, targetHeight);
+      } else {
+        // FALLBACK: If AI fails to detect pose on mobile, center the template
+        const targetWidth = img.width * 0.7;
+        const targetHeight = (targetWidth / templateImg.width) * templateImg.height;
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(templateImg, (img.width - targetWidth) / 2, img.height * 0.15, targetWidth, targetHeight);
       }
     }
     ctx.globalCompositeOperation = 'source-over';
