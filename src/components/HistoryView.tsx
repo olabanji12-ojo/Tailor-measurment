@@ -41,30 +41,22 @@ export const HistoryView: React.FC = () => {
   const getStatusBadge = (session: MeasurementSession) => {
     const isPast = session.delivery_date ? new Date(session.delivery_date) < new Date() : false;
     if (isPast) {
-      return { text: 'Delivered', color: 'text-gray-500 bg-gray-100' };
+      // ✅ FIX #6: Past deadline = Overdue, not Delivered
+      return { text: 'Overdue', color: 'text-amber-600 bg-amber-50' };
     }
     if (session.amount_paid === 0 && session.total_cost && session.total_cost > 0) {
       return { text: 'Unpaid', color: 'text-red-500 bg-red-50' };
     }
-    // Defaulting to Completed for aesthetics as shown in design
     return { text: 'Active', color: 'text-emerald-500 bg-emerald-50' };
   };
 
   return (
     <div className="flex flex-col min-h-full pb-32">
       
-      {/* Top App Bar (If rendering without the p-6 wrapper in App.tsx, we need px-0 here, but we are inside p-6, so we'll use negative margins to pull it out) */}
+      {/* Top App Bar */}
       <div className="-mx-6 -mt-6 px-6 py-4 flex justify-between items-center bg-transparent mb-4">
-        <div className="flex items-center gap-4">
-          <button className="text-gray-900">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
-        </div>
+        <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
+        {/* ✅ FIX #7: Removed dead hamburger button */}
         <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shadow-sm">
           {profileImage ? (
             <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />

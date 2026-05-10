@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from './context/AppContext';
 import { HistoryView } from './components/HistoryView';
@@ -48,9 +48,11 @@ const NavBar: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { currentSession } = useAppContext();
+  const { currentSession, clearSession } = useAppContext();
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showNewJobConfirm, setShowNewJobConfirm] = useState(false);
 
   if (isLoading) {
     return <div className="h-screen flex items-center justify-center bg-[#FDFDFD]">
@@ -77,6 +79,23 @@ const AppContent: React.FC = () => {
     );
   }
 
+  const handleNewJobPress = () => {
+    if (currentSession) {
+      // Active session detected — ask for confirmation
+      setShowNewJobConfirm(true);
+    } else {
+      navigate('/measure');
+    }
+  };
+
+  const handleConfirmNewJob = () => {
+    clearSession();
+    setShowNewJobConfirm(false);
+    navigate('/measure');
+  };
+
+  const isOnMeasurePage = location.pathname === '/measure';
+
   return (
     <div className="h-screen flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
       
@@ -92,21 +111,64 @@ const AppContent: React.FC = () => {
         </Routes>
       </main>
 
-      {/* Floating Action Button (+ NEW JOB) */}
-      <div className="absolute bottom-[100px] left-0 right-0 flex justify-center z-50 pointer-events-none">
-        <button 
-          onClick={() => navigate('/measure')}
-          className="pointer-events-auto bg-[#0F172A] text-white flex items-center gap-2 px-8 py-4 rounded-[32px] shadow-[0_8px_30px_rgba(15,23,42,0.3)] hover:scale-105 transition-transform"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span className="text-[11px] font-bold tracking-widest uppercase mt-0.5">NEW JOB</span>
-        </button>
-      </div>
+      {/* Floating Action Button (+ NEW JOB) — hidden on measure page */}
+      {!isOnMeasurePage && (
+        <div className="absolute bottom-[100px] left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <button 
+            onClick={handleNewJobPress}
+            className="pointer-events-auto bg-[#0F172A] text-white flex items-center gap-2 px-8 py-4 rounded-[32px] shadow-[0_8px_30px_rgba(15,23,42,0.3)] hover:scale-105 transition-transform"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span className="text-[11px] font-bold tracking-widest uppercase mt-0.5">NEW JOB</span>
+          </button>
+        </div>
+      )}
 
-      <NavBar />
+      {/* NEW JOB Confirmation Dialog */}
+      {showNewJobConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center pb-10 px-6">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowNewJobConfirm(false)}
+          />
+          {/* Dialog Card */}
+          <div className="relative bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mb-5 mx-auto">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3 className="font-serif text-2xl font-bold text-gray-900 text-center mb-2">Active Session</h3>
+            <p className="text-sm text-gray-500 text-center leading-relaxed mb-8">
+              You have an active session for{' '}
+              <span className="font-bold text-gray-900">{currentSession?.customerName}</span>.
+              {' '}Starting a new job will discard this session.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleConfirmNewJob}
+                className="w-full h-14 bg-[#0F172A] text-white rounded-full font-bold text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
+              >
+                Start New Job
+              </button>
+              <button
+                onClick={() => setShowNewJobConfirm(false)}
+                className="w-full h-14 bg-gray-100 text-gray-700 rounded-full font-bold text-sm uppercase tracking-widest active:scale-95 transition-transform"
+              >
+                Continue Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ FIX #5: NavBar hidden on measure page to prevent accidental taps */}
+      {!isOnMeasurePage && <NavBar />}
     </div>
   );
 };

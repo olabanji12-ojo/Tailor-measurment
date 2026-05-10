@@ -32,6 +32,13 @@ export const useWhisper = () => {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        
+        // ✅ FIX #3: Guard against empty/too-short recordings (< 1KB = accidental tap)
+        if (audioBlob.size < 1000) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
         setIsTranscribing(true);
         await sendToWhisper(audioBlob);
         setIsTranscribing(false);

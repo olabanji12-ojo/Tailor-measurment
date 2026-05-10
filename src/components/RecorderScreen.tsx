@@ -10,7 +10,7 @@ import { playCaptureSound } from '../utils/soundUtils';
 
 export const RecorderScreen: React.FC = () => {
   const { isListening, isTranscribing, transcript, toggleListening, clearTranscript } = useWhisper();
-  const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
+  const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, updateSessionMeasurements, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
 
@@ -40,6 +40,7 @@ export const RecorderScreen: React.FC = () => {
   // Just Captured UI state
   const [lastCaptured, setLastCaptured] = useState<string | null>(null);
   const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+  const [noMatchHint, setNoMatchHint] = useState(false);
 
   const [stylePhotos, setStylePhotos] = useState<string[]>([]);
   const [clothPhotos, setClothPhotos] = useState<string[]>([]);
@@ -110,16 +111,19 @@ export const RecorderScreen: React.FC = () => {
 
     // Handle Measurements
     Object.entries(result.measurements).forEach(([part, val]) => {
-      // Fuzzy match: perfect match OR target contains spoken part (e.g. 'top_length' contains 'length')
-      const targetKey = activeParts.find(p => 
-        p.toLowerCase() === part.toLowerCase() || 
-        p.toLowerCase().includes(part.toLowerCase())
-      );
+      // Exact match first, then fuzzy (prevents 'length' matching wrong garment's field)
+      const targetKey = 
+        activeParts.find(p => p.toLowerCase() === part.toLowerCase()) ||
+        activeParts.find(p => p.toLowerCase().includes(part.toLowerCase()));
+
       if (targetKey && activeMeasurements[targetKey] !== val) {
+        // Update local UI state
         setMeasurementsByGarment(prev => ({
           ...prev,
           [activeGarmentName]: { ...prev[activeGarmentName], [targetKey]: val }
         }));
+        // ✅ FIX #1: Also persist to context (and localStorage via AppContext effect)
+        updateSessionMeasurements(activeGarmentName, targetKey, val);
         setLastCaptured(targetKey);
         playCaptureSound();
         capturedSomething = true;
@@ -128,6 +132,11 @@ export const RecorderScreen: React.FC = () => {
 
     if (capturedSomething) {
       setTimeout(() => setLastCaptured(null), 2000);
+      setNoMatchHint(false);
+    } else {
+      // ✅ FIX #4: Show hint when speech heard but no measurement parsed
+      setNoMatchHint(true);
+      setTimeout(() => setNoMatchHint(false), 4000);
     }
 
     // Clear UI transcript after 4 seconds
@@ -409,12 +418,21 @@ export const RecorderScreen: React.FC = () => {
           {/* Transcript Preview Bubble */}
           {inputMode === 'voice' && lastTranscript && !isTranscribing && (
             <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] animate-in fade-in zoom-in duration-300">
-              <div className="bg-[#0F172A]/90 backdrop-blur-xl text-white px-5 py-3 rounded-[24px] shadow-2xl border border-white/10 text-center">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">I heard:</span>
+              <div className={`backdrop-blur-xl text-white px-5 py-3 rounded-[24px] shadow-2xl border text-center ${
+                noMatchHint 
+                  ? 'bg-amber-600/90 border-amber-400/20' 
+                  : 'bg-[#0F172A]/90 border-white/10'
+              }`}>
+                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest block mb-1">
+                  {noMatchHint ? '⚠️ No measurement found' : 'I heard:'}
+                </span>
                 <p className="text-xs font-medium leading-relaxed italic">"{lastTranscript}"</p>
+                {noMatchHint && (
+                  <p className="text-[10px] text-amber-200 mt-1.5">Try: "Waist 34" or "Chest 42"</p>
+                )}
               </div>
               {/* Little arrow tip */}
-              <div className="w-3 h-3 bg-[#0F172A]/90 rotate-45 mx-auto -mt-1.5 border-r border-b border-white/10"></div>
+              <div className={`w-3 h-3 rotate-45 mx-auto -mt-1.5 border-r border-b ${noMatchHint ? 'bg-amber-600/90 border-amber-400/20' : 'bg-[#0F172A]/90 border-white/10'}`}></div>
             </div>
           )}
 
