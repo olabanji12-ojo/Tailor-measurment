@@ -466,6 +466,49 @@ export const RecorderScreen: React.FC = () => {
               <h3 className="font-serif text-3xl font-bold text-gray-900">Finalize</h3>
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mt-2">{currentSession?.customerName}</p>
             </div>
+
+            {/* ✅ FIX #8: Save Confirmation Summary */}
+            <div className="bg-[#F8F9FA] rounded-[24px] p-5 space-y-3 border border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Session Summary</p>
+              
+              {/* Client & Garments */}
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500 font-medium">Client</span>
+                <span className="text-sm font-bold text-gray-900">{currentSession?.customerName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500 font-medium">Garments</span>
+                <span className="text-sm font-bold text-gray-900">{currentSession?.garments.join(', ')}</span>
+              </div>
+
+              {/* Measurements filled count per garment */}
+              {currentSession?.garments.map(garment => {
+                const count = Object.keys(measurementsByGarment[garment] || {}).length;
+                const total = garmentTemplates.find(t => t.name === garment)?.parts.length || 0;
+                return (
+                  <div key={garment} className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 font-medium">{garment}</span>
+                    <span className={`text-sm font-bold ${count >= total ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {count}/{total} measurements
+                    </span>
+                  </div>
+                );
+              })}
+
+              {/* Cost */}
+              {(currentSession?.totalCost ?? 0) > 0 && (
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <span className="text-sm text-gray-500 font-medium">Total Cost</span>
+                  <span className="text-sm font-bold text-gray-900">₦{(currentSession?.totalCost ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+              {(currentSession?.amountPaid ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 font-medium">Deposit Paid</span>
+                  <span className="text-sm font-bold text-emerald-600">₦{(currentSession?.amountPaid ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
             
             {/* Photo Uploads */}
             <div className="space-y-3 mt-4">
