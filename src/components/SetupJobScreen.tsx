@@ -89,7 +89,6 @@ export const SetupJobScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-full pb-32">
-
       {/* Top App Bar */}
       <div className="px-6 py-4 flex justify-between items-center bg-transparent">
         <div className="flex items-center gap-4">
@@ -101,14 +100,14 @@ export const SetupJobScreen: React.FC = () => {
             <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Free Plan</span>
           </div>
           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
-          {profileImage ? (
-            <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
-          ) : (
-            <img src={`https://ui-avatars.com/api/?name=${ownerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
-          )}
+            {profileImage ? (
+              <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <img src={`https://ui-avatars.com/api/?name=${ownerName}&background=0F172A&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
       <div className="px-6 md:px-12 pt-6 md:pt-10 max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto w-full transition-all duration-300">
         {/* Header Section */}
@@ -118,12 +117,10 @@ export const SetupJobScreen: React.FC = () => {
         </header>
 
         <div className="space-y-8">
-
           {/* Client Name + Optional Photo */}
           <section className="space-y-4">
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">CLIENT NAME</label>
             <div className="flex items-center gap-4">
-              {/* Optional Client Photo */}
               <div
                 onClick={() => clientPhotoInputRef.current?.click()}
                 className="w-16 h-16 rounded-full bg-gray-100 border-2 border-dashed border-gray-200 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#0F172A] hover:bg-gray-50 transition-all overflow-hidden relative"
@@ -161,14 +158,12 @@ export const SetupJobScreen: React.FC = () => {
           <section className="space-y-4">
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">GENDER CONTEXT</label>
             <div className="grid grid-cols-2 gap-4">
-              {/* Female */}
               <button
                 onClick={() => { setGender('female'); setSelectedGarments([]); }}
                 className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${
                   gender === 'female' ? 'bg-[#FFF1F2] border-pink-200 shadow-sm' : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
                 }`}
               >
-                {/* Female silhouette — dress shape */}
                 <svg className={`w-10 h-10 mb-2 ${gender === 'female' ? 'text-pink-500' : 'text-gray-400'}`} viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="12" cy="5" r="3" />
                   <path d="M8 10 C8 10 7 12 6 16 L10 16 L9 21 L15 21 L14 16 L18 16 C17 12 16 10 16 10 C15 10 14 8 12 8 C10 8 9 10 8 10 Z" />
@@ -176,14 +171,12 @@ export const SetupJobScreen: React.FC = () => {
                 <span className={`font-bold text-sm ${gender === 'female' ? 'text-pink-900' : 'text-gray-500'}`}>Female</span>
               </button>
 
-              {/* Male */}
               <button
                 onClick={() => { setGender('male'); setSelectedGarments([]); }}
                 className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${
                   gender === 'male' ? 'bg-[#EFF6FF] border-blue-200 shadow-sm' : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
                 }`}
               >
-                {/* Male silhouette — suit/tie shape */}
                 <svg className={`w-10 h-10 mb-2 ${gender === 'male' ? 'text-blue-500' : 'text-gray-400'}`} viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="12" cy="5" r="3" />
                   <path d="M9 9 L7 21 L10 21 L12 15 L14 21 L17 21 L15 9 L13 9 L12 12 L11 9 Z" />
@@ -195,7 +188,7 @@ export const SetupJobScreen: React.FC = () => {
             </div>
           </section>
 
-          {/* Garment Selection (Multi-Select) */}
+          {/* Garment Selection */}
           <section className={`space-y-4 transition-all duration-500 ${gender ? 'opacity-100 translate-y-0' : 'opacity-50 pointer-events-none translate-y-4'}`}>
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">
               SELECT GARMENTS <span className="text-gray-400 font-normal normal-case ml-1">(Tap multiple)</span>
@@ -222,7 +215,7 @@ export const SetupJobScreen: React.FC = () => {
             </div>
           </section>
 
-          {/* Financials (Optional) */}
+          {/* Financials */}
           <section className={`space-y-4 transition-all duration-500 ${selectedGarments.length > 0 ? 'opacity-100 translate-y-0' : 'opacity-50 pointer-events-none translate-y-4'}`}>
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">FINANCIALS <span className="text-gray-400 font-normal normal-case ml-1">(Optional)</span></label>
             <div className="grid grid-cols-2 gap-4">
@@ -321,7 +314,6 @@ export const SetupJobScreen: React.FC = () => {
               </button>
             )}
           </div>
-
         </div>
       </div>
     </div>

@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { useWhisper } from '../hooks/useWhisper';
 import { RecordingButton } from './RecordingButton';
 import { VirtualTryOn } from './VirtualTryOn';
-import { exportToPDF } from '../utils/pdfExport';
+import { exportToImage } from '../utils/imageExport';
 
 export const ClientProfileScreen: React.FC = () => {
-  const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, findPartByLabel } = useAppContext();
+  const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, findPartByLabel, shopName } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
 
@@ -450,27 +450,49 @@ export const ClientProfileScreen: React.FC = () => {
         </button>
 
         <button 
-          onClick={() => exportToPDF(viewingProfile, 'TailorVoice Boutique')}
+          onClick={() => exportToImage('measurement-export-card', `Measurement_${viewingProfile.customer_name.replace(/\s+/g, '_')}`)}
           className="w-full bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm flex items-center gap-4 text-gray-900 group active:scale-95 transition-all"
         >
           <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors text-emerald-600">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
           </div>
           <div className="text-left">
-            <h4 className="font-serif text-xl font-bold mb-0.5">Download PDF</h4>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Measurement Report</p>
+            <h4 className="font-serif text-xl font-bold mb-0.5">Download Image</h4>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Shareable Card</p>
           </div>
           <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
         </button>
+
+        <a 
+          href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('DELIVERY: ' + viewingProfile.customer_name + ' - ' + viewingProfile.garment)}&dates=${viewingProfile.delivery_date.replace(/-/g, '')}/${viewingProfile.delivery_date.replace(/-/g, '')}&details=${encodeURIComponent('Job for ' + viewingProfile.customer_name + '\nTotal: ₦' + (viewingProfile.total_cost || 0))}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm flex items-center gap-4 text-gray-900 group active:scale-95 transition-all"
+        >
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-100 transition-colors text-blue-600">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <div className="text-left">
+            <h4 className="font-serif text-xl font-bold mb-0.5">Save to Calendar</h4>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Schedule Delivery</p>
+          </div>
+          <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </a>
       </div>
+
 
       {/* Active Order Pill */}
       <div className="px-1 mb-20">
@@ -508,6 +530,58 @@ export const ClientProfileScreen: React.FC = () => {
           onClose={() => setShowTryOn(false)} 
         />
       )}
+      {/* HIDDEN EXPORT CARD (For Image Export) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <div id="measurement-export-card" className="w-[800px] bg-white p-12 border-[20px] border-[#0F172A]">
+          <div className="flex justify-between items-start border-b-2 border-gray-100 pb-8 mb-10">
+            <div>
+              <h1 className="font-serif text-5xl font-bold text-[#0F172A] tracking-tighter">Atelier Card</h1>
+              <p className="text-[#D4AF37] font-bold tracking-[0.4em] uppercase text-xs mt-2">{shopName}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date Issued</p>
+              <p className="text-xl font-bold text-gray-900">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-12 mb-12">
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Client Name</p>
+                <p className="text-3xl font-bold text-gray-900">{viewingProfile.customer_name}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Garment Type</p>
+                <p className="text-xl font-bold text-gray-900 capitalize">{viewingProfile.garment}</p>
+              </div>
+            </div>
+            <div className="bg-[#F8F9FA] p-6 rounded-3xl border border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-center">Delivery Deadline</p>
+              <p className="text-3xl font-bold text-[#0F172A] text-center">{dueDate}</p>
+            </div>
+          </div>
+
+          <div className="mb-12">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6 border-b border-gray-100 pb-2">Measurement Data ({viewingProfile.unit || 'in'})</h3>
+            <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+              {measurements.map((m, i) => (
+                <div key={i} className="flex justify-between border-b border-gray-50 pb-2">
+                  <span className="text-gray-600 font-medium capitalize">{m.label.replace(/_/g, ' ')}</span>
+                  <span className="font-bold text-[#0F172A]">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-8 border-t-2 border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest font-serif italic">Verified by Atelier AI</span>
+            </div>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">© TailorVoice Pro</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
