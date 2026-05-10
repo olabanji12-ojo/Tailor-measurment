@@ -11,6 +11,13 @@ export const HomeScreen: React.FC = () => {
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning,';
+    if (hour < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  };
+
   const totalRevenue = globalSessions.reduce((sum, s) => sum + (s.total_cost || 0), 0);
   const activeJobs = globalSessions.filter(s => !s.delivery_date || new Date(s.delivery_date) >= new Date()).length;
   
@@ -47,7 +54,7 @@ export const HomeScreen: React.FC = () => {
       {/* Greeting Header */}
       <div className="px-6 mt-6">
         <h2 className="font-serif text-4xl leading-tight font-bold text-gray-900">
-          Good Morning,<br />
+          {getGreeting()}<br />
           {user?.shop_name || shopName}
         </h2>
         <p className="text-gray-500 mt-2 text-sm">
@@ -107,7 +114,7 @@ export const HomeScreen: React.FC = () => {
                   <p className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Balance</p>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-gray-900">
-                      ${Math.max(0, (upcomingJob.total_cost || 0) - (upcomingJob.amount_paid || 0))}
+                      ₦{Math.max(0, (upcomingJob.total_cost || 0) - (upcomingJob.amount_paid || 0)).toLocaleString()}
                     </span>
                   </div>
                 </div>
