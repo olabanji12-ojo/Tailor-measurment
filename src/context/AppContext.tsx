@@ -11,8 +11,9 @@ interface CurrentSession {
   deadline: string; // YYYY-MM-DD
   totalCost: number;
   amountPaid: number;
-  photos: string[]; // base64 strings for now
-  measurements: Record<string, Record<string, number>>; // Persist measurements too
+  photos: string[];
+  clientPhoto?: string; // Optional Cloudinary URL of client's face photo
+  measurements: Record<string, Record<string, number>>;
 }
 
 export interface ClientProfile {
@@ -26,6 +27,7 @@ export interface ClientProfile {
   total_cost: number;
   amount_paid: number;
   style_photos: string[];
+  client_photo?: string; // Optional client face photo URL
   unit: string;
 }
 
@@ -42,6 +44,7 @@ interface AppContextType {
   // Global Data
   globalSessions: ClientProfile[];
   globalSessionsLoading: boolean;
+  totalSessions: number;
   refreshSessions: (targetPage?: number, isLoadMore?: boolean) => void;
   loadMore: () => void;
   hasMore: boolean;
@@ -162,6 +165,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Global Data Source (Single Source of Truth)
   const [globalSessions, setGlobalSessions] = useState<ClientProfile[]>([]);
   const [globalSessionsLoading, setGlobalSessionsLoading] = useState(true);
+  const [totalSessions, setTotalSessions] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -184,6 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newRecords = (result.data || []).filter((s: any) => s.customer_name && s.customer_name.trim() !== '');
       
       setGlobalSessions(prev => targetPage === 1 ? newRecords : [...prev, ...newRecords]);
+      setTotalSessions(result.total || 0);
       setPage(targetPage);
       setHasMore(result.data.length === 10); // Simple check if there's possibly more
       setGlobalSessionsLoading(false);
@@ -216,7 +221,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentSession,
         startSession, updateSessionMeasurements, clearSession, addGarmentToSession, removeGarmentFromSession,
         shopName, saveShopName, isSetup,
-        globalSessions, globalSessionsLoading, refreshSessions,
+        globalSessions, globalSessionsLoading, totalSessions, refreshSessions,
         hasMore, loadMore,
         ...labels
       }}

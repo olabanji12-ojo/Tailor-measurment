@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import type { Gender } from '../utils/templates';
 
 export const SetupJobScreen: React.FC = () => {
-  const { startSession, garmentTemplates } = useAppContext();
+  const { startSession, garmentTemplates, totalSessions } = useAppContext();
   const { user } = useAuth();
   
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
+  
+  const LIMIT = 20;
+  const isLimitReached = totalSessions >= LIMIT;
 
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
@@ -16,6 +19,9 @@ export const SetupJobScreen: React.FC = () => {
   const [totalCost, setTotalCost] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [clientPhoto, setClientPhoto] = useState<string>('');
+  const [isUploadingClientPhoto, setIsUploadingClientPhoto] = useState(false);
+  const clientPhotoInputRef = useRef<HTMLInputElement>(null);
   const [deadline, setDeadline] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -49,9 +55,25 @@ export const SetupJobScreen: React.FC = () => {
     });
   };
 
+  const handleClientPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingClientPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'TailorVoice');
+      const res = await fetch('https://api.cloudinary.com/v1_1/dcpvhegxr/image/upload', {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      setClientPhoto(data.secure_url);
+    } catch { alert('Photo upload failed.'); }
+    finally { setIsUploadingClientPhoto(false); }
+  };
+
   const handleStart = () => {
     if (!name || !gender || selectedGarments.length === 0) return;
-
     startSession({
       customerName: name,
       gender,
@@ -60,7 +82,8 @@ export const SetupJobScreen: React.FC = () => {
       totalCost: parseFloat(totalCost) || 0,
       amountPaid: parseFloat(amountPaid) || 0,
       photos,
-      measurements: {} // Initialize with empty measurements
+      clientPhoto: clientPhoto || undefined,
+      measurements: {}
     });
   };
 
@@ -72,7 +95,12 @@ export const SetupJobScreen: React.FC = () => {
         <div className="flex items-center gap-4">
           <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
         </div>
-        <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+        <div className="flex items-center gap-4">
+          <div className="px-3 py-1 bg-amber-50 border border-amber-100 rounded-full flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Free Plan</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
           {profileImage ? (
             <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
@@ -80,6 +108,7 @@ export const SetupJobScreen: React.FC = () => {
           )}
         </div>
       </div>
+    </div>
 
       <div className="px-6 md:px-12 pt-6 md:pt-10 max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto w-full transition-all duration-300">
         {/* Header Section */}
@@ -90,52 +119,76 @@ export const SetupJobScreen: React.FC = () => {
 
         <div className="space-y-8">
 
-          {/* Client Input */}
+          {/* Client Name + Optional Photo */}
           <section className="space-y-4">
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">CLIENT NAME</label>
-            <div className="relative group">
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full h-12 bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#0F172A] focus:ring-0 px-0 transition-all duration-300 text-lg font-medium text-gray-900 placeholder:text-gray-300 outline-none"
-                placeholder="Enter full name..."
-              />
+            <div className="flex items-center gap-4">
+              {/* Optional Client Photo */}
+              <div
+                onClick={() => clientPhotoInputRef.current?.click()}
+                className="w-16 h-16 rounded-full bg-gray-100 border-2 border-dashed border-gray-200 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-[#0F172A] hover:bg-gray-50 transition-all overflow-hidden relative"
+              >
+                {isUploadingClientPhoto ? (
+                  <div className="w-5 h-5 border-2 border-[#0F172A] border-t-transparent rounded-full animate-spin" />
+                ) : clientPhoto ? (
+                  <img src={clientPhoto} alt="Client" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span className="text-[8px] text-gray-400 font-bold mt-0.5">PHOTO</span>
+                  </div>
+                )}
+              </div>
+              <input ref={clientPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleClientPhotoUpload} />
+              <div className="relative group flex-1">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full h-12 bg-transparent border-0 border-b-2 border-gray-200 focus:border-[#0F172A] focus:ring-0 px-0 transition-all duration-300 text-lg font-medium text-gray-900 placeholder:text-gray-300 outline-none"
+                  placeholder="Enter full name..."
+                />
+              </div>
             </div>
+            {clientPhoto && (
+              <button onClick={() => setClientPhoto('')} className="text-[10px] text-red-400 font-bold uppercase tracking-widest">
+                Remove photo
+              </button>
+            )}
           </section>
 
           {/* Gender Selection */}
           <section className="space-y-4">
             <label className="text-[11px] font-bold tracking-[0.15em] uppercase text-gray-500 block">GENDER CONTEXT</label>
             <div className="grid grid-cols-2 gap-4">
+              {/* Female */}
               <button
-                onClick={() => {
-                  setGender('female');
-                  setSelectedGarments([]); // Reset garments if gender changes
-                }}
-                className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${gender === 'female'
-                    ? 'bg-[#FFF1F2] border-pink-200 shadow-sm'
-                    : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
-                  }`}
+                onClick={() => { setGender('female'); setSelectedGarments([]); }}
+                className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${
+                  gender === 'female' ? 'bg-[#FFF1F2] border-pink-200 shadow-sm' : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
+                }`}
               >
-                <svg className={`w-8 h-8 mb-2 ${gender === 'female' ? 'text-pink-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                {/* Female silhouette — dress shape */}
+                <svg className={`w-10 h-10 mb-2 ${gender === 'female' ? 'text-pink-500' : 'text-gray-400'}`} viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="3" />
+                  <path d="M8 10 C8 10 7 12 6 16 L10 16 L9 21 L15 21 L14 16 L18 16 C17 12 16 10 16 10 C15 10 14 8 12 8 C10 8 9 10 8 10 Z" />
                 </svg>
                 <span className={`font-bold text-sm ${gender === 'female' ? 'text-pink-900' : 'text-gray-500'}`}>Female</span>
               </button>
 
+              {/* Male */}
               <button
-                onClick={() => {
-                  setGender('male');
-                  setSelectedGarments([]);
-                }}
-                className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${gender === 'male'
-                    ? 'bg-[#EFF6FF] border-blue-200 shadow-sm'
-                    : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
-                  }`}
+                onClick={() => { setGender('male'); setSelectedGarments([]); }}
+                className={`aspect-[4/3] flex flex-col items-center justify-center rounded-[24px] border-2 transition-all duration-300 ${
+                  gender === 'male' ? 'bg-[#EFF6FF] border-blue-200 shadow-sm' : 'bg-[#F8F9FA] border-transparent hover:border-gray-200 opacity-60 hover:opacity-100'
+                }`}
               >
-                <svg className={`w-8 h-8 mb-2 ${gender === 'male' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                {/* Male silhouette — suit/tie shape */}
+                <svg className={`w-10 h-10 mb-2 ${gender === 'male' ? 'text-blue-500' : 'text-gray-400'}`} viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="3" />
+                  <path d="M9 9 L7 21 L10 21 L12 15 L14 21 L17 21 L15 9 L13 9 L12 12 L11 9 Z" />
+                  <path d="M9 9 C9 9 8 10 8 11 L10 11 L9 9 Z" />
+                  <path d="M15 9 C15 9 16 10 16 11 L14 11 L15 9 Z" />
                 </svg>
                 <span className={`font-bold text-sm ${gender === 'male' ? 'text-blue-900' : 'text-gray-500'}`}>Male</span>
               </button>
@@ -239,23 +292,34 @@ export const SetupJobScreen: React.FC = () => {
 
           {/* Primary Action */}
           <div className="pt-2">
-            <button
-              onClick={handleStart}
-              disabled={!name || !gender || selectedGarments.length === 0}
-              className={`w-full h-16 rounded-full font-bold text-lg shadow-[0_12px_24px_rgba(15,23,42,0.15)] transition-all flex items-center justify-center gap-3 ${(!name || !gender || selectedGarments.length === 0)
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                  : 'bg-[#0F172A] text-white hover:bg-black active:scale-95'
-                }`}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect>
-                <line x1="6" y1="6" x2="6" y2="10"></line>
-                <line x1="10" y1="6" x2="10" y2="10"></line>
-                <line x1="14" y1="6" x2="14" y2="10"></line>
-                <line x1="18" y1="6" x2="18" y2="10"></line>
-              </svg>
-              Start Measuring
-            </button>
+            {isLimitReached ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 text-center space-y-4">
+                <p className="text-sm font-bold text-amber-900">You've reached your free limit of {LIMIT} clients.</p>
+                <p className="text-[11px] text-amber-700 font-medium leading-relaxed">Upgrade to Unlimited for just ₦2,500/month to keep growing your boutique.</p>
+                <button 
+                  onClick={() => window.open('https://paystack.com/', '_blank')}
+                  className="w-full h-12 bg-[#D4AF37] text-white rounded-full font-bold text-[11px] tracking-widest uppercase shadow-lg active:scale-95"
+                >Upgrade to Premium</button>
+              </div>
+            ) : (
+              <button
+                onClick={handleStart}
+                disabled={!name || !gender || selectedGarments.length === 0}
+                className={`w-full h-16 rounded-full font-bold text-lg shadow-[0_12px_24px_rgba(15,23,42,0.15)] transition-all flex items-center justify-center gap-3 ${(!name || !gender || selectedGarments.length === 0)
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                    : 'bg-[#0F172A] text-white hover:bg-black active:scale-95'
+                  }`}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect>
+                  <line x1="6" y1="6" x2="6" y2="10"></line>
+                  <line x1="10" y1="6" x2="10" y2="10"></line>
+                  <line x1="14" y1="6" x2="14" y2="10"></line>
+                  <line x1="18" y1="6" x2="18" y2="10"></line>
+                </svg>
+                Start Measuring
+              </button>
+            )}
           </div>
 
         </div>

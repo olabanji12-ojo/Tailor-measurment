@@ -18,13 +18,15 @@ interface MeasurementSession {
 
 
 export const HistoryView: React.FC = () => {
-  const { setViewingProfile, globalSessions, globalSessionsLoading, hasMore, loadMore } = useAppContext();
-  const { user } = useAuth();
+  const { setViewingProfile, globalSessions, globalSessionsLoading, hasMore, loadMore, refreshSessions } = useAppContext();
+  const { user, token } = useAuth();
   
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const filteredSessions = globalSessions.filter(s => 
     s.customer_name.toLowerCase().includes(search.toLowerCase()) || 
@@ -41,13 +43,28 @@ export const HistoryView: React.FC = () => {
   const getStatusBadge = (session: MeasurementSession) => {
     const isPast = session.delivery_date ? new Date(session.delivery_date) < new Date() : false;
     if (isPast) {
-      // ✅ FIX #6: Past deadline = Overdue, not Delivered
       return { text: 'Overdue', color: 'text-amber-600 bg-amber-50' };
     }
     if (session.amount_paid === 0 && session.total_cost && session.total_cost > 0) {
       return { text: 'Unpaid', color: 'text-red-500 bg-red-50' };
     }
     return { text: 'Active', color: 'text-emerald-500 bg-emerald-50' };
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/measurements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setConfirmDeleteId(null);
+      refreshSessions(1);
+    } catch {
+      alert('Could not delete record.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -121,48 +138,80 @@ export const HistoryView: React.FC = () => {
             return (
               <div 
                 key={session.id} 
-                onClick={() => {
-                  setViewingProfile(session as any);
-                  navigate(`/client/${session.id}`);
-                }}
-                className="bg-white rounded-[28px] p-6 shadow-[0_8px_24px_rgba(0,0,0,0.02)] border border-gray-50 flex flex-col gap-4 transition-transform hover:scale-[1.01] active:scale-95 cursor-pointer"
+                className="bg-white rounded-[28px] p-6 shadow-[0_8px_24px_rgba(0,0,0,0.02)] border border-gray-50 flex flex-col gap-4 transition-transform active:scale-95 relative"
               >
-                
                 {/* Header Row */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-serif text-xl font-bold text-gray-900">{session.customer_name}</h3>
-                    <p className="text-gray-500 font-medium mt-1">Last session: {displayDate}</p>
+                <div 
+                  className="flex justify-between items-start cursor-pointer"
+                  onClick={() => { setViewingProfile(session as any); navigate(`/client/${session.id}`); }}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Client photo or initials */}
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                      {(session as any).client_photo ? (
+                        <img src={(session as any).client_photo} alt={session.customer_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[#0F172A] flex items-center justify-center text-white font-bold text-xs">
+                          {session.customer_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-gray-900">{session.customer_name}</h3>
+                      <p className="text-gray-400 text-xs font-medium mt-0.5">Last session: {displayDate}</p>
+                    </div>
                   </div>
                   <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${badge.color}`}>
                     {badge.text}
                   </div>
                 </div>
 
-                {/* Footer Row (Images & Garment) */}
-                <div className="flex items-center gap-3 mt-2">
-                  
-                  {/* Overlapping Photo Circles */}
-                  {photos.length > 0 ? (
-                    <div className="flex -space-x-3">
-                      {photos.slice(0, 3).map((photoUrl, idx) => (
-                        <div key={idx} className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-100 relative shadow-sm z-[1]">
-                          <img src={photoUrl} alt="Style" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
+                {/* Footer Row (Photos & Garment & Delete) */}
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center gap-3">
+                    {photos.length > 0 ? (
+                      <div className="flex -space-x-3">
+                        {photos.slice(0, 3).map((photoUrl, idx) => (
+                          <div key={idx} className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gray-100 relative shadow-sm z-[1]">
+                            <img src={photoUrl} alt="Style" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-[#0F172A] border-2 border-white flex items-center justify-center shadow-sm">
+                        <span className="text-[10px] text-white">📏</span>
+                      </div>
+                    )}
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{garmentName}</span>
+                  </div>
+
+                  {/* Delete button */}
+                  {confirmDeleteId === session.id ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1.5 rounded-full bg-gray-100"
+                      >Cancel</button>
+                      <button
+                        onClick={() => handleDelete(session.id)}
+                        disabled={deletingId === session.id}
+                        className="text-[10px] font-bold text-white uppercase tracking-widest px-3 py-1.5 rounded-full bg-red-500 active:scale-95 transition-transform"
+                      >
+                        {deletingId === session.id ? '...' : 'Delete'}
+                      </button>
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#0F172A] border-2 border-white flex items-center justify-center shadow-sm">
-                      <span className="text-[10px] text-white">📏</span>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(session.id); }}
+                      className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
                   )}
-
-                  {/* Garment Name */}
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    {garmentName}
-                  </span>
                 </div>
-
               </div>
             );
           })

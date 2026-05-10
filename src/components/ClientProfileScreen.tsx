@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWhisper } from '../hooks/useWhisper';
 import { RecordingButton } from './RecordingButton';
 import { VirtualTryOn } from './VirtualTryOn';
+import { exportToPDF } from '../utils/pdfExport';
 
 export const ClientProfileScreen: React.FC = () => {
   const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, findPartByLabel } = useAppContext();
@@ -186,8 +187,12 @@ export const ClientProfileScreen: React.FC = () => {
       {/* Top App Bar */}
       <div className="-mx-6 -mt-6 px-6 py-4 flex justify-between items-center bg-transparent mb-4">
         <div className="flex items-center gap-4">
-          <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shadow-sm">
-            <img src="https://ui-avatars.com/api/?name=J+S&background=random" alt="Avatar" className="w-full h-full object-cover" />
+          <div className="w-10 h-10 rounded-full bg-[#0F172A] overflow-hidden border border-gray-100 shadow-sm flex items-center justify-center text-white font-bold text-xs">
+            {viewingProfile.client_photo ? (
+              <img src={viewingProfile.client_photo} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span>{viewingProfile.customer_name?.split(' ').map(n => n[0]).join('').toUpperCase()}</span>
+            )}
           </div>
           <h1 className="font-serif text-xl font-bold tracking-tight text-gray-900">TailorVoice</h1>
         </div>
@@ -420,9 +425,10 @@ export const ClientProfileScreen: React.FC = () => {
         </div>
       )}
 
-      {/* A.I. Design Tools */}
-      <div className="px-1 mb-10">
-        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">A.I. Design Tools</h3>
+      {/* A.I. Design Tools & Export */}
+      <div className="px-1 mb-10 space-y-4">
+        <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">Actions & Design</h3>
+        
         <button 
           onClick={() => setShowTryOn(true)}
           className="w-full bg-gradient-to-r from-[#0F172A] to-[#1e293b] rounded-[24px] p-6 shadow-xl flex items-center gap-4 text-white group active:scale-95 transition-all"
@@ -437,6 +443,28 @@ export const ClientProfileScreen: React.FC = () => {
           <div className="text-left">
             <h4 className="font-serif text-xl font-bold mb-0.5">Virtual Try-On</h4>
             <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Preview Fabrics & Colors</p>
+          </div>
+          <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => exportToPDF(viewingProfile, 'TailorVoice Boutique')}
+          className="w-full bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm flex items-center gap-4 text-gray-900 group active:scale-95 transition-all"
+        >
+          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors text-emerald-600">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div className="text-left">
+            <h4 className="font-serif text-xl font-bold mb-0.5">Download PDF</h4>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Measurement Report</p>
           </div>
           <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>

@@ -156,8 +156,15 @@ export const HomeScreen: React.FC = () => {
                 className="flex items-center justify-between p-4 bg-[#F8F9FA] rounded-[24px] border border-gray-100 hover:border-[#0F172A] transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm bg-[#0F172A] text-white">
-                    {getInitials(client.customer_name)}
+                  {/* Client avatar — photo or initials */}
+                  <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
+                    {client.client_photo ? (
+                      <img src={client.client_photo} alt={client.customer_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[#0F172A] flex items-center justify-center font-bold text-sm text-white">
+                        {getInitials(client.customer_name)}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 text-sm">{client.customer_name}</p>

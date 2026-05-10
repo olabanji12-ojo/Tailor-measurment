@@ -11,7 +11,7 @@ import { shareMeasurementCard } from '../utils/shareCard';
 
 export const RecorderScreen: React.FC = () => {
   const { isListening, isTranscribing, transcript, toggleListening, clearTranscript } = useWhisper();
-  const { unit, shopName, getLabel, findPartByLabel, currentSession, clearSession, updateSessionMeasurements, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
+  const { unit, shopName, getLabel, findPartByLabel, currentSession, startSession, clearSession, updateSessionMeasurements, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
 
@@ -37,6 +37,8 @@ export const RecorderScreen: React.FC = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(currentSession?.customerName || '');
   const [numPadPart, setNumPadPart] = useState<string | null>(null);
   
   // Just Captured UI state
@@ -217,6 +219,7 @@ export const RecorderScreen: React.FC = () => {
           cloth_photos: clothPhotos,
           total_cost: currentSession.totalCost,
           amount_paid: currentSession.amountPaid,
+          client_photo: currentSession.clientPhoto,
         }),
       });
       if (res.ok) {
@@ -256,7 +259,33 @@ export const RecorderScreen: React.FC = () => {
                 <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                 NOW RECORDING
               </p>
-              <h2 className="font-serif text-3xl font-bold text-gray-900 tracking-tight">{currentSession.customerName} Session</h2>
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    className="font-serif text-2xl font-bold text-gray-900 tracking-tight bg-transparent border-b-2 border-[#0F172A] outline-none w-full max-w-[200px]"
+                    autoFocus
+                  />
+                  <button 
+                    onClick={() => {
+                      if (currentSession && editedName.trim()) {
+                        startSession({ ...currentSession, customerName: editedName.trim() });
+                      }
+                      setIsEditingName(false);
+                    }}
+                    className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest"
+                  >Save</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditedName(currentSession?.customerName || ''); setIsEditingName(true); }}>
+                  <h2 className="font-serif text-3xl font-bold text-gray-900 tracking-tight">{currentSession?.customerName} Session</h2>
+                  <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button 
