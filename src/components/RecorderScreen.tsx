@@ -22,6 +22,10 @@ export const RecorderScreen: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   
   const [measurementsByGarment, setMeasurementsByGarment] = useState<Record<string, Record<string, number>>>(() => {
+    // Restore from persisted session if available
+    if (currentSession?.measurements && Object.keys(currentSession.measurements).length > 0) {
+      return currentSession.measurements;
+    }
     const init: Record<string, Record<string, number>> = {};
     if (currentSession?.garments) {
       currentSession.garments.forEach(g => { init[g] = {}; });
@@ -35,6 +39,7 @@ export const RecorderScreen: React.FC = () => {
   
   // Just Captured UI state
   const [lastCaptured, setLastCaptured] = useState<string | null>(null);
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null);
 
   const [stylePhotos, setStylePhotos] = useState<string[]>([]);
   const [clothPhotos, setClothPhotos] = useState<string[]>([]);
@@ -49,6 +54,9 @@ export const RecorderScreen: React.FC = () => {
 
   useEffect(() => {
     if (inputMode !== 'voice' || !transcript || !activeGarmentName) return;
+    
+    // Show the transcript preview in the UI
+    setLastTranscript(transcript);
     
     const result = parseMeasurements(transcript);
     let capturedSomething = false;
@@ -81,7 +89,7 @@ export const RecorderScreen: React.FC = () => {
         case 'next':
           const nextEmptyIdx = activeParts.findIndex(p => !activeMeasurements[p]);
           if (nextEmptyIdx !== -1) {
-            // Simplified: jump focus to next empty (no explicit focus yet, but we'll pulse it)
+            // Simplified: jump focus to next empty
           }
           break;
         case 'add':
@@ -102,7 +110,11 @@ export const RecorderScreen: React.FC = () => {
 
     // Handle Measurements
     Object.entries(result.measurements).forEach(([part, val]) => {
-      const targetKey = activeParts.find(p => p.toLowerCase() === part.toLowerCase());
+      // Fuzzy match: perfect match OR target contains spoken part (e.g. 'top_length' contains 'length')
+      const targetKey = activeParts.find(p => 
+        p.toLowerCase() === part.toLowerCase() || 
+        p.toLowerCase().includes(part.toLowerCase())
+      );
       if (targetKey && activeMeasurements[targetKey] !== val) {
         setMeasurementsByGarment(prev => ({
           ...prev,
@@ -118,7 +130,10 @@ export const RecorderScreen: React.FC = () => {
       setTimeout(() => setLastCaptured(null), 2000);
     }
 
-    // CRITICAL: Clear transcript after processing so identical captures work next time
+    // Clear UI transcript after 4 seconds
+    setTimeout(() => setLastTranscript(null), 4000);
+
+    // CRITICAL: Clear engine transcript after processing
     clearTranscript();
   }, [transcript]);
 
@@ -388,6 +403,18 @@ export const RecorderScreen: React.FC = () => {
                 <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full animate-bounce [animation-delay:0.4s]"></div>
               </div>
               <span className="text-[8px] font-bold text-[#D4AF37] uppercase tracking-widest">A.I. Thinking...</span>
+            </div>
+          )}
+
+          {/* Transcript Preview Bubble */}
+          {inputMode === 'voice' && lastTranscript && !isTranscribing && (
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-[80vw] max-w-[300px] animate-in fade-in zoom-in duration-300">
+              <div className="bg-[#0F172A]/90 backdrop-blur-xl text-white px-5 py-3 rounded-[24px] shadow-2xl border border-white/10 text-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">I heard:</span>
+                <p className="text-xs font-medium leading-relaxed italic">"{lastTranscript}"</p>
+              </div>
+              {/* Little arrow tip */}
+              <div className="w-3 h-3 bg-[#0F172A]/90 rotate-45 mx-auto -mt-1.5 border-r border-b border-white/10"></div>
             </div>
           )}
 

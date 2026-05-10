@@ -4,7 +4,8 @@
 
 export const MEASUREMENT_PARTS = [
   'waist', 'chest', 'shoulder', 'length', 'sleeve', 'arm', 'wrist', 
-  'hip', 'thigh', 'inseam', 'neck', 'bust', 'back', 'stomach', 'ankle', 'knee'
+  'hip', 'thigh', 'inseam', 'neck', 'bust', 'back', 'stomach', 'ankle', 'knee',
+  'bicep', 'calf', 'underbust'
 ];
 
 export interface VoiceCommand {
@@ -65,14 +66,16 @@ export const parseMeasurements = (text: string): ParsedResult => {
     });
   }
 
-  // 2. STRICT MEASUREMENT EXTRACTION
-  // We only capture a measurement if it is PAIRED with a label
+  // 2. SMART MEASUREMENT EXTRACTION
+  // Clean text of common punctuation that confuses regex
+  const cleanText = lowerText.replace(/[:,-]/g, ' ');
+  
   MEASUREMENT_PARTS.forEach(part => {
-    // Look for: [Part Name] [optional words] [Number]
-    // Example: "waist is 32", "waist 32.5"
-    const regex = new RegExp(`\\b${part}\\b(?:\\s+(?:is|was|at|of))?\\s+(\\d+(?:\\.\\d+)?)\\b`, 'g');
+    // Look for: [Part Name] [optional words] [Number] [optional units]
+    // Example: "waist 32", "waist is 32.5 inches", "waist: 34"
+    const regex = new RegExp(`\\b${part}\\b(?:\\s+(?:is|was|at|of|around))?\\s+(\\d+(?:\\.\\d+)?)(?:\\s*(?:inches|inch|cm|centimeters|m|meters|in|"))?\\b`, 'g');
     let m;
-    while ((m = regex.exec(lowerText)) !== null) {
+    while ((m = regex.exec(cleanText)) !== null) {
       result.measurements[part] = parseFloat(m[1]);
     }
   });

@@ -12,6 +12,7 @@ interface CurrentSession {
   totalCost: number;
   amountPaid: number;
   photos: string[]; // base64 strings for now
+  measurements: Record<string, Record<string, number>>; // Persist measurements too
 }
 
 export interface ClientProfile {
@@ -20,7 +21,7 @@ export interface ClientProfile {
   date: string;
   gender: string;
   garment: string;
-  data: any; // Flexible to support flat or nested measurements
+  data: any; 
   delivery_date: string;
   total_cost: number;
   amount_paid: number;
@@ -52,6 +53,7 @@ interface AppContextType {
   // Session State
   currentSession: CurrentSession | null;
   startSession: (session: CurrentSession) => void;
+  updateSessionMeasurements: (garment: string, part: string, value: number, isDelete?: boolean) => void;
   clearSession: () => void;
   addGarmentToSession: (garment: string) => void;
   removeGarmentFromSession: (garment: string) => void;
@@ -83,8 +85,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [unit, setUnit] = useState<'in' | 'cm'>('in');
   const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-  const [currentSession, setCurrentSession] = useState<CurrentSession | null>(null);
+  
+  // Initialize Session from localStorage
+  const [currentSession, setCurrentSession] = useState<CurrentSession | null>(() => {
+    const saved = localStorage.getItem('current_tailor_session');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [viewingProfile, setViewingProfile] = useState<ClientProfile | null>(null);
+
+  // Sync Session to localStorage
+  useEffect(() => {
+    if (currentSession) {
+      localStorage.setItem('current_tailor_session', JSON.stringify(currentSession));
+    } else {
+      localStorage.removeItem('current_tailor_session');
+    }
+  }, [currentSession]);
 
   // Garment Templates Persistence
   const [garmentTemplates, setGarmentTemplates] = useState<GarmentTemplate[]>(() => {
@@ -102,10 +119,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const labels = useLabels();
   const isSetup = !!user;
-  const saveShopName = () => {}; // Legacy placeholder
+  const saveShopName = () => {}; 
 
   const startSession = (session: CurrentSession) => setCurrentSession(session);
-  const clearSession = () => setCurrentSession(null);
+  const clearSession = () => {
+    setCurrentSession(null);
+    localStorage.removeItem('current_tailor_session');
+  };
+
+  const updateSessionMeasurements = (garment: string, part: string, value: number, isDelete = false) => {
+    setCurrentSession(prev => {
+      if (!prev) return null;
+      const nextMeasurements = { ...prev.measurements };
+      if (!nextMeasurements[garment]) nextMeasurements[garment] = {};
+      
+      if (isDelete) {
+        delete nextMeasurements[garment][part];
+      } else {
+        nextMeasurements[garment][part] = value;
+      }
+      
+      return { ...prev, measurements: nextMeasurements };
+    });
+  };
+
   const addGarmentToSession = (garment: string) => {
     setCurrentSession(prev => {
       if (!prev) return prev;
@@ -116,7 +153,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const removeGarmentFromSession = (garment: string) => {
     setCurrentSession(prev => {
       if (!prev) return prev;
-      // Don't allow removing the very last garment
       if (prev.garments.length <= 1) return prev; 
       return { ...prev, garments: prev.garments.filter(g => g !== garment) };
     });
@@ -171,7 +207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         garmentTemplates,
         updateGarmentTemplate,
         currentSession,
-        startSession, clearSession, addGarmentToSession, removeGarmentFromSession,
+        startSession, updateSessionMeasurements, clearSession, addGarmentToSession, removeGarmentFromSession,
         shopName, saveShopName, isSetup,
         globalSessions, globalSessionsLoading, refreshSessions,
         hasMore, loadMore,

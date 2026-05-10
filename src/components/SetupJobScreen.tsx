@@ -59,7 +59,8 @@ export const SetupJobScreen: React.FC = () => {
       deadline: deadline,
       totalCost: parseFloat(totalCost) || 0,
       amountPaid: parseFloat(amountPaid) || 0,
-      photos
+      photos,
+      measurements: {} // Initialize with empty measurements
     });
   };
 
