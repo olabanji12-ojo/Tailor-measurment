@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 interface User {
   id: string;
@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, shopName: string) => Promise<void>;
   logout: () => void;
+  handleUnauthorized: () => void;
   isLoading: boolean;
 }
 
@@ -22,14 +23,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('tailor_token'));
   const [isLoading, setIsLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('tailor_token');
+    localStorage.removeItem('tailor_user');
+    localStorage.removeItem('current_tailor_session');
+  }, []);
+
+  // Auto-logout when a 401 is detected anywhere in the app
+  const handleUnauthorized = useCallback(() => {
+    logout();
+  }, [logout]);
+
   useEffect(() => {
-    // If we have a token, we could optionally verify it with /api/me
+    const storedToken = localStorage.getItem('tailor_token');
     const storedUser = localStorage.getItem('tailor_user');
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+
+    if (!storedToken || !storedUser) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
-  }, [token]);
+
+    // Verify token is still valid using a lightweight protected endpoint
+    fetch(`${import.meta.env.VITE_API_URL}/measurements?page=1&limit=1`, {
+      headers: { 'Authorization': `Bearer ${storedToken}` }
+    }).then(res => {
+      if (res.ok) {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } else {
+        // Token expired or invalid — clear silently
+        logout();
+      }
+    }).catch(() => {
+      // Network error (e.g. Render sleeping) — still load from cache
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser));
+    }).finally(() => {
+      setIsLoading(false);
+    });
+  }, []);
 
   const login = async (email: string, password: string) => {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
@@ -69,15 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tailor_user', JSON.stringify(data.user));
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('tailor_token');
-    localStorage.removeItem('tailor_user');
-  };
-
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, handleUnauthorized, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

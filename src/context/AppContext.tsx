@@ -81,6 +81,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, token } = useAuth();
+  const { handleUnauthorized } = useAuth();
   const shopName = user?.shop_name || '';
 
   const [unit, setUnit] = useState<'in' | 'cm'>('in');
@@ -172,6 +173,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/measurements?page=${targetPage}&limit=10`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      // Handle expired token gracefully
+      if (res.status === 401) {
+        handleUnauthorized();
+        return;
+      }
       const result = await res.json();
       
       const newRecords = (result.data || []).filter((s: any) => s.customer_name && s.customer_name.trim() !== '');
