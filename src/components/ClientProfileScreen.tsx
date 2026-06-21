@@ -226,7 +226,7 @@ export const ClientProfileScreen: React.FC = () => {
 
   if (!viewingProfile) {
     return (
-      <div className="flex flex-col min-h-full pb-32 bg-[#FDFDFD] justify-center items-center h-screen">
+      <div className="flex flex-col min-h-full pb-32 bg-[#FDFDFD] justify-center items-center">
          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">
             {globalSessionsLoading ? 'Loading Profile...' : 'No Client Selected'}
          </p>

@@ -236,9 +236,10 @@ const AppContent: React.FC = () => {
   };
 
   const isOnMeasurePage = location.pathname === '/measure' && !!currentSession;
+  const showFloatingNewJob = ['/', '/archive'].includes(location.pathname);
 
   return (
-    <div className="h-screen flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
+    <div className="h-full flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
       
       {/* Main Content Router */}
       <main className="flex-1 relative overflow-y-auto custom-scrollbar">
@@ -255,8 +256,8 @@ const AppContent: React.FC = () => {
         </Routes>
       </main>
 
-      {/* Floating Action Button (+ NEW JOB) — hidden on measure page */}
-      {!isOnMeasurePage && (
+      {/* Floating Action Button (+ NEW JOB) — only on Home and Archive */}
+      {showFloatingNewJob && (
         <div className="absolute bottom-[100px] left-0 right-0 flex justify-center z-50 pointer-events-none">
           <button 
             onClick={handleNewJobPress}

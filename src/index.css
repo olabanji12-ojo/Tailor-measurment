@@ -24,7 +24,7 @@ body {
   height: 100vh;
   height: -webkit-fill-available;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   background: #f8f9fa;
   color: #1a1a1a;
   /* Support for notched phones */
