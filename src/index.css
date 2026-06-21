@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1B120F; /* Espresso Black */
+  --color-accent: #D4AF37; /* Champagne Gold */
+  --color-bg-light: #FAF7F2; /* Linen White */
+  --color-bg-secondary: #F5EFE6; /* Warm Sand */
+  --color-text-main: #1B120F; /* Espresso Black */
+  --color-text-muted: #7E7571; /* Warm Taupe */
+  --color-border-subtle: rgba(27, 18, 15, 0.08);
+
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-serif: 'Cormorant Garamond', serif;
+}
+
+:root {
+  font-family: var(--font-sans);
+  color-scheme: light;
+  background-color: var(--color-bg-light);
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  height: -webkit-fill-available;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #f8f9fa;
+  color: #1a1a1a;
+  /* Support for notched phones */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+#root {
+  height: 100%;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-bottom-sheet {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.08);
+}
+
+.premium-gradient {
+  background: linear-gradient(135deg, #c5a367 0%, #e5c387 50%, #c5a367 100%);
+}
+
+.nav-shadow {
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
+}
+
+/* Premium Boutique Scrollbar */
+
+/* Voice Capture Pulse Feedback */
+@keyframes capture-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.animate-capture-pulse {
+  animation: capture-pulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  border-color: #10B981 !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(197, 163, 103, 0.2); /* Subtle Boutique Gold */
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 163, 103, 0.5);
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(197, 163, 103, 0.2) transparent;
+}
+
+/* Luxury Input & Loading Animations */
+@keyframes line-slide {
+  from { width: 0; left: 50%; }
+  to { width: 100%; left: 0; }
+}
+
+.animate-line-slide {
+  animation: line-slide 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes progress-cycle {
+  0% { transform: scaleX(0); transform-origin: left; }
+  50% { transform: scaleX(1); transform-origin: left; }
+  50.01% { transform-origin: right; }
+  100% { transform: scaleX(0); transform-origin: right; }
+}
+
+.animate-progress-cycle {
+  animation: progress-cycle 2s infinite cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@keyframes breath {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.animate-breath {
+  animation: breath 2s infinite ease-in-out;
+}
