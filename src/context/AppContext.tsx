@@ -184,15 +184,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Global Data Source (Single Source of Truth)
-  const [globalSessions, setGlobalSessions] = useState<ClientProfile[]>([]);
-  const [globalSessionsLoading, setGlobalSessionsLoading] = useState(true);
-  const [totalSessions, setTotalSessions] = useState(0);
+  const [globalSessions, setGlobalSessions] = useState<ClientProfile[]>(() => {
+    const saved = localStorage.getItem('global_sessions');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [globalSessionsLoading, setGlobalSessionsLoading] = useState(() => {
+    const saved = localStorage.getItem('global_sessions');
+    return saved ? false : true; // If cached sessions exist, show them instantly and fetch in background
+  });
+  const [totalSessions, setTotalSessions] = useState(() => {
+    const saved = localStorage.getItem('global_sessions_total');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
   const refreshSessions = async (targetPage = 1, isLoadMore = false) => {
     if (!token) return;
-    if (!isLoadMore) setGlobalSessionsLoading(true);
+    if (!isLoadMore && globalSessions.length === 0) setGlobalSessionsLoading(true);
     
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/measurements?page=${targetPage}&limit=10`, {
@@ -208,8 +217,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       const newRecords = (result.data || []).filter((s: any) => s.customer_name && s.customer_name.trim() !== '');
       
-      setGlobalSessions(prev => targetPage === 1 ? newRecords : [...prev, ...newRecords]);
+      setGlobalSessions(prev => {
+        const updated = targetPage === 1 ? newRecords : [...prev, ...newRecords];
+        localStorage.setItem('global_sessions', JSON.stringify(updated));
+        return updated;
+      });
       setTotalSessions(result.total || 0);
+      localStorage.setItem('global_sessions_total', String(result.total || 0));
       setPage(targetPage);
       setHasMore(result.data.length === 10); // Simple check if there's possibly more
       setGlobalSessionsLoading(false);

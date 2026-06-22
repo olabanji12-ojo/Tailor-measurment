@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -6,10 +6,14 @@ import { Card } from './ui/Card';
 import { JobCard } from './ui/JobCard';
 
 export const HomeScreen: React.FC = () => {
-  const { shopName, setViewingProfile, globalSessions, globalSessionsLoading } = useAppContext();
+  const { shopName, setViewingProfile, globalSessions, globalSessionsLoading, refreshSessions } = useAppContext();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
+  useEffect(() => {
+    refreshSessions(1);
+  }, []);
+
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
 

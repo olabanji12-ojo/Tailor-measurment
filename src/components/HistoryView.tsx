@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,10 @@ interface MeasurementSession {
 export const HistoryView: React.FC = () => {
   const { setViewingProfile, globalSessions, globalSessionsLoading, hasMore, loadMore, refreshSessions } = useAppContext();
   const { user, token } = useAuth();
+
+  useEffect(() => {
+    refreshSessions(1);
+  }, []);
   
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
