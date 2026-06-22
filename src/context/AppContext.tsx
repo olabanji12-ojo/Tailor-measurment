@@ -112,7 +112,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Garment Templates Persistence
   const [garmentTemplates, setGarmentTemplates] = useState<GarmentTemplate[]>(() => {
     const saved = localStorage.getItem('garmentTemplates');
-    return saved ? JSON.parse(saved) : DEFAULT_TEMPLATES;
+    if (!saved) return DEFAULT_TEMPLATES;
+    try {
+      const parsed = JSON.parse(saved) as GarmentTemplate[];
+      // Keep all saved templates, but append any DEFAULT_TEMPLATES that aren't present by name
+      const merged = [...parsed];
+      DEFAULT_TEMPLATES.forEach(def => {
+        if (!merged.some(m => m.name.toLowerCase() === def.name.toLowerCase())) {
+          merged.push(def);
+        }
+      });
+      return merged;
+    } catch (e) {
+      return DEFAULT_TEMPLATES;
+    }
   });
 
   const updateGarmentTemplate = (garmentName: string, parts: string[]) => {

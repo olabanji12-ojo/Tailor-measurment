@@ -24,6 +24,9 @@ export const RecorderScreen: React.FC = () => {
   const [isAddingCustomPart, setIsAddingCustomPart] = useState(false);
   const [newCustomPart, setNewCustomPart] = useState('');
   const [showHelp, setShowHelp] = useState(false);
+  const [showVoiceHint, setShowVoiceHint] = useState<boolean>(() => {
+    return localStorage.getItem('voice_hint_dismissed') !== 'true';
+  });
   
   const [measurementsByGarment, setMeasurementsByGarment] = useState<Record<string, Record<string, number>>>(() => {
     // Restore from persisted session if available
@@ -442,6 +445,12 @@ export const RecorderScreen: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <button 
+                onClick={() => navigate('/')} 
+                className="text-[10px] font-bold text-text-muted hover:text-primary uppercase tracking-widest bg-bg-secondary/40 px-4 py-2 rounded-full border border-border-subtle shadow-sm active:scale-95 transition-colors"
+              >
+                Back
+              </button>
+              <button 
                 onClick={() => setShowHelp(true)}
                 className="w-10 h-10 rounded-full bg-bg-secondary/40 border border-border-subtle flex items-center justify-center text-accent hover:text-primary transition-all shadow-sm"
               >
@@ -452,6 +461,28 @@ export const RecorderScreen: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* ONE-TIME VOICE HINT BANNER */}
+          {showVoiceHint && (
+            <div className="mx-6 mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+              <span className="text-lg flex-shrink-0">🎙️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-amber-900">
+                  Say: <span className="font-black">&ldquo;Chest 42&rdquo;</span> or <span className="font-black">&ldquo;Waist 34&rdquo;</span>
+                </p>
+                <p className="text-[9px] text-amber-700 mt-0.5">Tap ⌨️ in the dock below to type instead</p>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem('voice_hint_dismissed', 'true');
+                  setShowVoiceHint(false);
+                }}
+                className="w-7 h-7 rounded-full bg-amber-200/60 flex items-center justify-center text-amber-800 font-bold text-sm flex-shrink-0 hover:bg-amber-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* GARMENT TABS */}
           <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
@@ -980,7 +1011,7 @@ export const RecorderScreen: React.FC = () => {
               </div>
               <h3 className="font-serif text-2xl font-bold text-primary">Voice Limit Reached</h3>
               <p className="text-sm text-text-muted mt-2 leading-relaxed">
-                You've used all 15 minutes of your free monthly voice quota.
+                You've used all 10 minutes of your free monthly voice quota.
               </p>
               {voiceQuota.resets_on && (
                 <p className="text-[10px] font-bold text-accent uppercase tracking-widest mt-3">

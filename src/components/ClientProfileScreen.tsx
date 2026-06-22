@@ -441,8 +441,8 @@ export const ClientProfileScreen: React.FC = () => {
                 </svg>
               </div>
               <div className="text-left">
-                <h4 className="font-serif text-lg font-medium text-[#FAF7F2]">Fabric Optimizer</h4>
-                <p className="text-[9px] text-[#FAF7F2]/60 font-bold uppercase tracking-widest">Calculate Pattern Yield</p>
+                <h4 className="font-serif text-lg font-medium text-[#FAF7F2]">How Many Yards Do I Need?</h4>
+                <p className="text-[9px] text-[#FAF7F2]/60 font-bold uppercase tracking-widest">Calculate fabric for this client</p>
               </div>
               <div className="ml-auto opacity-50 group-hover:opacity-100 transition-opacity">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent"><polyline points="9 18 15 12 9 6"></polyline></svg>

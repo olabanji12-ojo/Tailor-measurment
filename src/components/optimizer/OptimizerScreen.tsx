@@ -163,6 +163,33 @@ export const OptimizerScreen: React.FC = () => {
 
       <div className="flex flex-col gap-6 max-w-lg mx-auto">
 
+        {/* Tailor-Friendly Explainer Card */}
+        {!clientId && (
+          <div className="bg-white rounded-[28px] p-5 border border-accent/20 shadow-sm flex gap-4 items-start">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0 text-lg">
+              🧵
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-primary uppercase tracking-widest mb-1">How many yards do you need?</p>
+              <p className="text-xs text-text-muted leading-relaxed font-sans">
+                Enter your client's measurements and this tool will calculate exactly how many yards of fabric to buy — so you get the right cut with zero waste.
+              </p>
+              <p className="text-[9px] text-accent font-bold uppercase tracking-widest mt-2">
+                💡 Open from a client's profile to auto-load their measurements
+              </p>
+            </div>
+          </div>
+        )}
+        {clientId && (
+          <div className="bg-amber-50 rounded-[28px] p-4 border border-amber-200 flex gap-3 items-center">
+            <span className="text-lg">📐</span>
+            <div>
+              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest">Loaded from Client Profile</p>
+              <p className="text-[9px] text-amber-700 mt-0.5">Measurements auto-filled from <span className="font-bold">{clientName}</span>. Adjust sliders below if needed.</p>
+            </div>
+          </div>
+        )}
+
         {/* Target Metrics Card */}
         <div className="bg-white rounded-[32px] p-6 border border-border-subtle shadow-sm flex flex-col gap-5 select-none">
           <div className="flex items-center justify-between">

@@ -11,7 +11,7 @@ export interface GarmentTemplate {
 export const DEFAULT_TEMPLATES: GarmentTemplate[] = [
   {
     name: 'Shirt',
-    parts: ['neck', 'shoulder', 'chest', 'waist', 'bicep', 'wrist', 'sleeve', 'top_length'],
+    parts: ['neck', 'shoulder', 'chest', 'underbust', 'waist', 'bust_point', 'dart_length', 'bicep', 'wrist', 'sleeve', 'top_length'],
     recommendedFor: ['male', 'female']
   },
   {
@@ -26,18 +26,39 @@ export const DEFAULT_TEMPLATES: GarmentTemplate[] = [
   },
   {
     name: 'Gown',
-    parts: ['shoulder', 'chest', 'underbust', 'waist', 'hip', 'gown_length'],
+    parts: ['shoulder', 'chest', 'bust_point', 'underbust', 'waist', 'hip', 'dart_length', 'back_length', 'gown_length'],
     recommendedFor: ['female']
   },
   {
     name: 'Skirt',
-    parts: ['waist', 'hip', 'skirt_length'],
+    parts: ['waist', 'hip', 'back_length', 'skirt_length'],
     recommendedFor: ['female']
   },
+  // ---- Nigerian Garment Templates ----
   {
     name: 'Agbada / Buba',
     parts: ['neck', 'shoulder', 'chest', 'waist', 'bicep', 'sleeve', 'top_length', 'trouser_length'],
     recommendedFor: ['male']
+  },
+  {
+    name: 'Senator',
+    parts: ['neck', 'shoulder', 'chest', 'waist', 'top_length', 'trouser_length', 'thigh', 'knee', 'ankle'],
+    recommendedFor: ['male']
+  },
+  {
+    name: 'Kaftan',
+    parts: ['neck', 'shoulder', 'chest', 'sleeve', 'kaftan_length'],
+    recommendedFor: ['male', 'female']
+  },
+  {
+    name: 'Ankara Blouse',
+    parts: ['shoulder', 'chest', 'underbust', 'waist', 'bust_point', 'dart_length', 'top_length', 'sleeve'],
+    recommendedFor: ['female']
+  },
+  {
+    name: 'Shorts / Knickers',
+    parts: ['waist', 'hip', 'thigh', 'knee', 'shorts_length'],
+    recommendedFor: ['male', 'female']
   },
   {
     name: 'Full Body',

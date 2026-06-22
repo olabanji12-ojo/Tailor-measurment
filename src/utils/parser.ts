@@ -5,8 +5,13 @@
 export const MEASUREMENT_PARTS = [
   'waist', 'chest', 'shoulder', 'length', 'sleeve', 'arm', 'wrist', 
   'hip', 'thigh', 'inseam', 'neck', 'bust', 'back', 'stomach', 'ankle', 'knee',
-  'bicep', 'calf', 'underbust'
+  'bicep', 'calf', 'underbust',
+  // Female-specific parts
+  'bust_point', 'dart_length', 'back_length',
+  // Nigerian garment-specific lengths
+  'kaftan_length', 'shorts_length', 'gown_length', 'skirt_length', 'trouser_length', 'top_length'
 ];
+
 
 export interface VoiceCommand {
   type: 'finish' | 'clear' | 'next' | 'add';

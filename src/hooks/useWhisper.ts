@@ -12,8 +12,8 @@ export interface VoiceQuota {
 
 const DEFAULT_QUOTA: VoiceQuota = {
   used_seconds: 0,
-  limit_seconds: 900,
-  remaining_seconds: 900,
+  limit_seconds: 600,
+  remaining_seconds: 600,
   warning_level: 'none',
   resets_on: '',
   is_admin: false,

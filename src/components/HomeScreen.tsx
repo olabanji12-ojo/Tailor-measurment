@@ -137,7 +137,7 @@ export const HomeScreen: React.FC = () => {
                 activeTab === 'atelier' ? 'bg-white text-primary shadow-sm border border-primary/2' : 'text-text-muted hover:text-primary'
               }`}
             >
-              Atelier Feed
+              My Jobs
             </button>
             <button 
               onClick={() => setActiveTab('analytics')}
@@ -145,7 +145,7 @@ export const HomeScreen: React.FC = () => {
                 activeTab === 'analytics' ? 'bg-white text-primary shadow-sm border border-primary/2' : 'text-text-muted hover:text-primary'
               }`}
             >
-              Analytics Board
+              Tools & Reports
             </button>
           </div>
         </div>

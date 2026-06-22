@@ -36,7 +36,7 @@ const NavBar: React.FC = () => {
           <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
           <line x1="12" y1="18" x2="12.01" y2="18"></line>
         </svg>
-        <span className="text-[9px] font-bold tracking-widest uppercase mt-0.5">Virtual</span>
+        <span className="text-[9px] font-bold tracking-widest uppercase mt-0.5">Try-On</span>
       </Link>
 
       <Link to="/archive" className={`flex flex-col items-center gap-1 transition-colors ${path === '/archive' || path.startsWith('/client/') || path === '/clients' ? 'text-accent' : 'text-text-muted hover:text-primary'}`}>

@@ -676,9 +676,16 @@ export const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ onClose, clientName,
               onClose();
             }
           }}
-          className="w-full h-14 bg-[#0F172A] hover:bg-black text-[#FAF7F2] rounded-full font-bold text-[10px] uppercase tracking-widest active:scale-[0.97] transition-all shadow-lg select-none mb-12"
+          className="w-full h-14 rounded-2xl font-bold text-[10px] uppercase tracking-widest active:scale-[0.97] transition-all shadow-lg select-none mb-12 flex items-center justify-center gap-3 relative overflow-hidden group"
+          style={{ background: 'linear-gradient(135deg, #C49B27 0%, #D4AF37 40%, #E8C84A 70%, #C49B27 100%)' }}
         >
-          Apply Draft Calibration
+          {/* Shimmer overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
+          {/* Checkmark icon */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(15,23,42,0.8)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span className="text-[#0F172A] font-black tracking-[0.2em]">Save Calibration to Draft</span>
         </button>
 
       </div>

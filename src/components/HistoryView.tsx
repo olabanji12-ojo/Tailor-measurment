@@ -101,7 +101,7 @@ export const HistoryView: React.FC = () => {
       {/* Editorial Top Navigation Header */}
       <div className="flex justify-between items-center bg-transparent mb-6 select-none">
         <div>
-          <span className="font-serif text-[10px] italic tracking-widest text-[#C49B27] block mb-1">ATELIER DIRECTORY</span>
+          <span className="font-serif text-[10px] italic tracking-widest text-[#C49B27] block mb-1">YOUR CLIENTS</span>
           <h1 className="font-serif text-3.5xl font-bold tracking-tight uppercase leading-none text-primary">
             Client Archive
           </h1>

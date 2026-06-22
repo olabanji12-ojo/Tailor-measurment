@@ -7,6 +7,7 @@ import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { SelectableCard } from './ui/SelectableCard';
+import { useNavigate } from 'react-router-dom'
 
 // ─── GENDER SILHOUETTE VECTOR DRAWINGS ───
 const SilhouetteSVG: React.FC<{ gender: 'male' | 'female' }> = ({ gender }) => {
@@ -24,7 +25,7 @@ const SilhouetteSVG: React.FC<{ gender: 'male' | 'female' }> = ({ gender }) => {
       </svg>
     );
   }
-  
+
   return (
     <svg width="44" height="88" viewBox="0 0 24 48" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
       <circle cx="12" cy="7" r="3" />
@@ -41,7 +42,7 @@ const SilhouetteSVG: React.FC<{ gender: 'male' | 'female' }> = ({ gender }) => {
 // ─── GARMENT LINE ART DRAWINGS ───
 const GarmentGridSVG: React.FC<{ type: string }> = ({ type }) => {
   const t = type.toLowerCase();
-  
+
   if (t.includes('suit') || t.includes('jacket') || t.includes('coat')) {
     return (
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
@@ -87,21 +88,21 @@ const GarmentGridSVG: React.FC<{ type: string }> = ({ type }) => {
 };
 
 export const SetupJobScreen: React.FC = () => {
+  const navigate = useNavigate();
   const { startSession, garmentTemplates, totalSessions } = useAppContext();
   const { user } = useAuth();
-  
+
   const profileImage = localStorage.getItem(`profile_img_${user?.id}`) || '';
   const ownerName = user?.email.split('@')[0] || 'Tailor';
-  
+
   const LIMIT = 20;
   const isLimitReached = totalSessions >= LIMIT;
-
+  // const navigate = useNavigate();
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [selectedGarments, setSelectedGarments] = useState<string[]>([]);
   const [totalCost, setTotalCost] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
   const [clientPhoto, setClientPhoto] = useState<string>('');
   const [isUploadingClientPhoto, setIsUploadingClientPhoto] = useState(false);
   const clientPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -125,8 +126,8 @@ export const SetupJobScreen: React.FC = () => {
     setReminderDate(newD.toISOString().split('T')[0]);
   };
 
-  const availableGarments = gender 
-    ? garmentTemplates.filter(t => t.recommendedFor.includes(gender)).map(t => t.name) 
+  const availableGarments = gender
+    ? garmentTemplates.filter(t => t.recommendedFor.includes(gender)).map(t => t.name)
     : [];
 
   const handleGarmentToggle = (garmentName: string) => {
@@ -135,19 +136,6 @@ export const SetupJobScreen: React.FC = () => {
         return prev.filter(g => g !== garmentName);
       }
       return [...prev, garmentName];
-    });
-  };
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setPhotos(prev => [...prev, reader.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
     });
   };
 
@@ -170,7 +158,7 @@ export const SetupJobScreen: React.FC = () => {
 
   const handleStart = () => {
     if (!name || !gender || selectedGarments.length === 0) return;
-    
+
     if (parseFloat(amountPaid) > parseFloat(totalCost)) {
       playSensorySound('error');
       alert(`⚠️ Error: Deposit paid (₦${parseFloat(amountPaid).toLocaleString()}) cannot exceed the total cost (₦${parseFloat(totalCost).toLocaleString()}).`);
@@ -185,7 +173,7 @@ export const SetupJobScreen: React.FC = () => {
       reminderDate: reminderDate,
       totalCost: parseFloat(totalCost) || 0,
       amountPaid: parseFloat(amountPaid) || 0,
-      photos,
+      photos: [],
       clientPhoto: clientPhoto || undefined,
       measurements: {}
     });
@@ -195,9 +183,16 @@ export const SetupJobScreen: React.FC = () => {
     <div className="flex flex-col min-h-full pb-36 font-sans text-primary">
       {/* Top App Bar */}
       <div className="px-6 py-5 flex justify-between items-center bg-transparent">
-        <span className="font-serif text-2xl font-semibold tracking-tighter text-primary">
-          TailorVoice
-        </span>
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-full bg-white border border-border-subtle flex items-center justify-center text-primary active:scale-95 transition-transform shadow-sm"
+          title="Back"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
         <div className="flex items-center gap-4">
           <div className="px-3 py-1 bg-bg-secondary border border-accent/20 rounded-full flex items-center gap-2 select-none shadow-sm">
             <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse"></span>
@@ -214,7 +209,7 @@ export const SetupJobScreen: React.FC = () => {
       </div>
 
       <div className="px-6 pt-4 max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto w-full transition-all duration-300">
-        
+
         {/* Header Section */}
         <header className="mb-8">
           <h2 className="font-serif text-4xl font-medium text-primary tracking-tighter leading-none">New Fitting</h2>
@@ -222,7 +217,7 @@ export const SetupJobScreen: React.FC = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 pb-12 space-y-8 md:space-y-0">
-          
+
           {/* Left Column: Profile, Gender, Financials */}
           <div className="space-y-8">
             {/* Client Name + Optional Photo */}
@@ -239,14 +234,14 @@ export const SetupJobScreen: React.FC = () => {
                     <img src={clientPhoto} alt="Client" className="w-full h-full object-cover" />
                   ) : (
                     <div className="flex flex-col items-center select-none opacity-60">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7E7571" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7E7571" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                       <span className="text-[7px] text-text-muted font-bold mt-1 tracking-widest uppercase">Photo</span>
                     </div>
                   )}
                 </div>
-                
+
                 <input ref={clientPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleClientPhotoUpload} />
-                
+
                 <div className="flex-1">
                   <Input
                     label="Client Name"
@@ -265,8 +260,8 @@ export const SetupJobScreen: React.FC = () => {
                 </div>
               )}
               {clientPhoto && (
-                <button 
-                  onClick={() => setClientPhoto('')} 
+                <button
+                  onClick={() => setClientPhoto('')}
                   className="text-[9px] text-red-500 font-bold uppercase tracking-widest h-9 px-4 border border-red-100 bg-red-50 rounded-xl flex items-center justify-center active:scale-95 transition-all mt-2"
                 >
                   Remove photo
@@ -326,16 +321,15 @@ export const SetupJobScreen: React.FC = () => {
                       if (Number(val) < 0) return;
                       setAmountPaid(val);
                     }}
-                    className={`w-full h-12 bg-transparent border-0 border-b pl-5 text-base font-bold outline-none transition-all duration-300 ${
-                      isDepositInvalid 
-                        ? 'border-red-300 focus:border-red-500 text-red-900' 
-                        : 'border-border-subtle focus:border-accent text-primary'
-                    }`}
+                    className={`w-full h-12 bg-transparent border-0 border-b pl-5 text-base font-bold outline-none transition-all duration-300 ${isDepositInvalid
+                      ? 'border-red-300 focus:border-red-500 text-red-900'
+                      : 'border-border-subtle focus:border-accent text-primary'
+                      }`}
                     placeholder="Deposit Paid"
                   />
                 </div>
               </div>
-              
+
               {/* Quick-Tap Payment Presets */}
               {parseFloat(totalCost) > 0 && (
                 <div className="flex gap-2 mt-2 flex-wrap">
@@ -372,7 +366,7 @@ export const SetupJobScreen: React.FC = () => {
                 <span className="text-[10px] font-bold tracking-widest uppercase text-accent block">Select Garments</span>
                 <span className="text-[8px] text-text-muted font-bold tracking-widest uppercase mb-0.5">Tap multiple</span>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
                 {availableGarments.map((g, idx) => {
                   const isSelected = selectedGarments.includes(g);
@@ -409,7 +403,7 @@ export const SetupJobScreen: React.FC = () => {
 
                 {/* Reminder Date */}
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-accent block">Alert Date</span>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-accent block">Reminder Date</span>
                   <div className="relative group">
                     <input
                       type="date"
@@ -420,7 +414,7 @@ export const SetupJobScreen: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Timeline Presets Slider */}
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mt-3">
                 {[
@@ -445,30 +439,7 @@ export const SetupJobScreen: React.FC = () => {
               </div>
             </section>
 
-            {/* Style References */}
-            <section className={`space-y-4 transition-all duration-500 ${selectedGarments.length > 0 ? 'opacity-100 translate-y-0' : 'opacity-40 pointer-events-none translate-y-4'}`}>
-              <div className="flex justify-between items-end">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-accent block">Style References</span>
-                <span className="text-[9px] text-text-muted font-bold tracking-widest uppercase">{photos.length} added</span>
-              </div>
-              
-              <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
-                {photos.map((photo, i) => (
-                  <div key={i} className="w-24 h-32 rounded-[24px] overflow-hidden flex-shrink-0 relative group border border-border-subtle">
-                    <img src={photo} alt="Reference" className="w-full h-full object-cover" />
-                    <button onClick={() => setPhotos(p => p.filter((_, idx) => idx !== i))} className="absolute inset-0 bg-primary/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-white text-[8px] tracking-widest font-bold uppercase border border-white/30 px-2 py-1 rounded">Remove</span>
-                    </button>
-                  </div>
-                ))}
-                
-                <label className="w-24 h-32 rounded-[24px] border-2 border-dashed border-border-subtle flex flex-col items-center justify-center text-text-muted cursor-pointer hover:border-accent/40 hover:text-primary hover:bg-white transition-all flex-shrink-0">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                  <span className="text-[8px] font-bold mt-2 uppercase tracking-widest">Upload</span>
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                </label>
-              </div>
-            </section>
+
 
             {/* Primary Action Button */}
             <div className="pt-4 shrink-0">
@@ -476,7 +447,7 @@ export const SetupJobScreen: React.FC = () => {
                 <Card bg="sand" shadow="sm" className="p-6 text-center space-y-4 border border-accent/20">
                   <p className="text-sm font-bold text-primary">You've reached your free limit of {LIMIT} clients.</p>
                   <p className="text-xs text-text-muted leading-relaxed">Upgrade to Atelier Unlimited for just ₦2,500/month to continue.</p>
-                  <Button 
+                  <Button
                     variant="primary"
                     onClick={() => window.open('https://paystack.com/', '_blank')}
                     className="w-full h-12"
