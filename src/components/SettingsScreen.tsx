@@ -207,7 +207,7 @@ export const SettingsScreen: React.FC = () => {
   }
 
   // Voice quota stats calculations
-  let quota = { used_seconds: 0, limit_seconds: 600, remaining_seconds: 600, warning_level: 'none', resets_on: '', is_admin: false };
+  let quota = { used_seconds: 0, limit_seconds: 480, remaining_seconds: 480, warning_level: 'none', resets_on: '', is_admin: false };
   try {
     const stored = localStorage.getItem('voice_quota');
     if (stored) quota = JSON.parse(stored);

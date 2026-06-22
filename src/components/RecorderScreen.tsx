@@ -9,11 +9,10 @@ import { playCaptureSound } from '../utils/soundUtils';
 import { shareMeasurementCard } from '../utils/shareCard';
 import { saveOfflineMeasurement } from '../utils/db';
 import { MeasurementCard } from './ui/MeasurementCard';
-import { VideoWrapper } from './ui/VideoWrapper';
 
 
 export const RecorderScreen: React.FC = () => {
-  const { isListening, isTranscribing, transcript, voiceQuota, recordingSeconds, recordingLimit, toggleListening, clearTranscript } = useWhisper();
+  const { isListening, isTranscribing, transcript, voiceQuota, recordingSeconds, toggleListening, clearTranscript } = useWhisper();
   const { unit, shopName, getLabel, findPartByLabel, currentSession, startSession, clearSession, updateSessionMeasurements, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -405,7 +404,7 @@ export const RecorderScreen: React.FC = () => {
 
   const filledCount = Object.keys(activeMeasurements).length;
   return (
-    <div className={`flex flex-col relative ${inputMode === 'voice' ? 'pb-72' : 'pb-40'} lg:pb-12 lg:ml-[40%] lg:w-[60%] min-h-full transition-all duration-500 bg-bg-light text-primary`}>
+    <div className="flex flex-col relative pb-40 min-h-full bg-bg-light text-primary max-w-lg md:max-w-4xl mx-auto w-full">
       
       {currentSession && (
         <div className="px-6 pt-8 pb-4">
@@ -585,7 +584,7 @@ export const RecorderScreen: React.FC = () => {
       </div>
 
       {/* Sleek Dynamic Input Dock Controls */}
-      <div className={`fixed ${inputMode === 'voice' ? 'bottom-[250px]' : 'bottom-[85px]'} lg:bottom-24 lg:left-[40%] left-0 right-0 z-50 px-6 flex flex-col gap-3 pointer-events-none transition-all duration-500`}>
+      <div className="fixed bottom-[96px] left-0 right-0 z-50 px-6 flex flex-col gap-3 pointer-events-none transition-all duration-500">
         
         {/* Floating Subtitle / Ticker ribbon */}
         {lastTranscript && (
@@ -689,136 +688,88 @@ export const RecorderScreen: React.FC = () => {
         )}
       </div>
 
-      {/* 🎙️ Dark Espresso Bottom/Sidebar Voice Dome Overlay */}
-      <div className={`
-        ${inputMode === 'voice' ? 'flex' : 'hidden lg:flex'}
-        fixed bottom-0 left-0 right-0 z-50 bg-primary text-white rounded-t-[48px] px-6 pt-6 pb-10 flex-col items-center gap-5 shadow-[0_-16px_48px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom duration-500
-        lg:fixed lg:top-0 lg:left-0 lg:bottom-0 lg:right-auto lg:w-[40%] lg:h-full lg:rounded-none lg:px-8 lg:py-12 lg:justify-center lg:shadow-[16px_0_48px_rgba(0,0,0,0.15)] lg:animate-none
-      `}>
-        {/* Top Notch Bar */}
-        <div className="w-12 h-1 bg-white/20 rounded-full mb-1 lg:hidden"></div>
-
-        {/* Time & Recording Status */}
-        <div className="flex flex-col items-center gap-1.5">
-          {isListening ? (
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping"></span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-400">RECORDING VOICE</span>
-              </div>
-              <span className={`font-serif text-3xl font-bold tracking-tight text-white tabular-nums ${
-                recordingSeconds >= recordingLimit - 5 ? 'text-orange-400' : 'text-accent'
-              }`}>
-                0:{String(recordingSeconds).padStart(2, '0')}
-              </span>
-            </div>
-          ) : isTranscribing ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0s]"></div>
-                <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.4s]"></div>
-              </div>
-              <span className="text-[10px] font-bold text-accent uppercase tracking-widest">AI TRANSLATING...</span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[10px] font-bold text-accent uppercase tracking-[0.22em]">VOICE PORTAL</span>
-              <span className="text-xs text-white/50">Ready to record</span>
-            </div>
-          )}
-          
-          <p className="text-xs text-white/60 font-sans text-center px-6 truncate max-w-sm">
-            {isListening ? (targetedPart ? `Capturing value for: ${getLabel(targetedPart)}` : 'Listening for measurements...') : 'Tap the animation node to start recording'}
-          </p>
-        </div>
-
-        {/* Central Loop Video / Circular Mic Button */}
-        <div className="flex items-center justify-between w-full max-w-xs px-4 mt-2">
-          {/* Left side button: Toggle Manual Keypad Mode */}
+      {/* 🎙️ Unified Floating Control Bar (Pill-shaped, at the bottom) */}
+      <div className="fixed bottom-6 left-0 right-0 z-50 px-6 pointer-events-none animate-in slide-in-from-bottom-4 duration-300">
+        <div className="w-full max-w-[450px] mx-auto bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.12)] border border-border-subtle px-4 py-2.5 flex items-center justify-between gap-3 pointer-events-auto">
+          {/* Left: Voice Mode Toggle / Mic Trigger Button */}
           <button
             onClick={() => {
-              setInputMode('manual');
-              setTargetedPart(null);
-            }}
-            className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-transform flex items-center justify-center border border-white/5 text-lg"
-            title="Manual Input Mode"
-          >
-            ⌨️
-          </button>
-
-          {/* Center circular soundwave animation wrapper */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                if (voiceState === 'exceeded') {
-                  setShowQuotaSheet(true);
-                  return;
-                }
+              if (voiceState === 'exceeded') {
+                setShowQuotaSheet(true);
+                return;
+              }
+              if (inputMode !== 'voice') {
                 setInputMode('voice');
+                setNumPadPart(null);
+              }
+              toggleListening();
+            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 border ${
+              isListening 
+                ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/20' 
+                : 'bg-[#FAF7F2] border-border-subtle text-primary hover:bg-[#FAF7F2]/80'
+            }`}
+            title={isListening ? "Stop Recording" : "Start Voice Recording"}
+          >
+            {isListening ? (
+              <span className="flex gap-1 items-center">
+                <span className="w-1 bg-white h-3 rounded-full animate-pulse"></span>
+                <span className="w-1 bg-white h-4 rounded-full animate-pulse [animation-delay:0.15s]"></span>
+                <span className="w-1 bg-white h-3 rounded-full animate-pulse [animation-delay:0.3s]"></span>
+              </span>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            )}
+          </button>
+          
+          {/* Center: Status Indicator Text */}
+          <div 
+            onClick={() => {
+              if (inputMode === 'voice') {
+                setInputMode('manual');
                 setTargetedPart(null);
-                toggleListening();
-              }}
-              className={`w-28 h-28 rounded-full flex items-center justify-center p-1.5 transition-all duration-300 relative ${
-                isListening
-                  ? 'bg-rose-500/20 border-4 border-rose-500 animate-pulse shadow-[0_0_24px_rgba(239,68,68,0.3)]'
-                  : 'bg-white/5 border-2 border-accent/40 hover:border-accent shadow-md shadow-primary/20'
-              }`}
-            >
-              <VideoWrapper
-                src="/tailor-animation/voice-recognition-animation-gif-download-12817365.mp4"
-                containerClassName="w-full h-full rounded-full !rounded-full bg-white overflow-hidden border-none"
-                className="w-[90%] h-[90%] object-contain"
-              />
-            </button>
-
-            {/* Ping Ring for live active listing */}
-            {isListening && (
-              <div className="absolute -inset-2.5 border-2 border-rose-500/20 rounded-full animate-ping pointer-events-none"></div>
+              } else {
+                setInputMode('voice');
+              }
+            }}
+            className="flex-1 text-center text-xs font-semibold font-sans tracking-wide text-text-muted cursor-pointer hover:text-primary transition-colors flex items-center justify-center gap-2 select-none"
+          >
+            {isListening ? (
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping"></span>
+                <span className="text-rose-600 font-bold uppercase tracking-wider text-[10px] tabular-nums">
+                  Recording 0:{String(recordingSeconds).padStart(2, '0')}
+                </span>
+              </div>
+            ) : isTranscribing ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0s]"></span>
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.15s]"></span>
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.3s]"></span>
+                </div>
+                <span className="text-[10px] font-bold text-accent uppercase tracking-widest">AI Translating...</span>
+              </div>
+            ) : inputMode === 'manual' ? (
+              <span className="text-text-muted">Keypad Input Active</span>
+            ) : (
+              <span className="text-text-muted flex items-center gap-1.5">
+                🎙️ Voice Portal Active <span className="text-[9px] bg-bg-secondary border border-border-subtle rounded px-1.5 py-0.5 font-bold uppercase">Tap ⌨️</span>
+              </span>
             )}
           </div>
 
-          {/* Right side button: Finalize Session */}
+          {/* Right: Save Session Button */}
           <button
             onClick={() => setIsSaving(true)}
-            className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-transform flex items-center justify-center text-white shadow-lg shadow-emerald-500/10 text-xl font-bold"
-            title="Finalize Session"
+            className="bg-primary hover:bg-black text-white px-6 h-10 rounded-full font-bold text-[10px] tracking-wider uppercase active:scale-95 transition-transform shadow-md"
           >
-            ✓
+            Save
           </button>
         </div>
       </div>
-
-      {/* ⌨️ Manual Mode floating bar */}
-      {inputMode === 'manual' && (
-        <div className="fixed bottom-6 left-0 lg:left-[40%] right-0 z-50 px-6 pointer-events-none">
-          <div className="w-full max-w-[450px] mx-auto bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.1)] border border-border-subtle px-4 py-2.5 flex items-center justify-between gap-3 pointer-events-auto">
-            {/* Toggle voice button */}
-            <button
-              onClick={() => {
-                setInputMode('voice');
-                setNumPadPart(null);
-              }}
-              className="w-10 h-10 rounded-full bg-bg-secondary hover:bg-bg-secondary/80 flex items-center justify-center text-lg active:scale-95 transition-transform border border-border-subtle"
-              title="Switch to Voice Mode"
-            >
-              🎙️
-            </button>
-            
-            <div className="flex-1 text-center text-xs text-text-muted font-medium font-sans">
-              Keypad Input Active
-            </div>
-
-            {/* Save Button */}
-            <button
-              onClick={() => setIsSaving(true)}
-              className="bg-primary hover:bg-primary/95 text-white px-6 h-10 rounded-full font-bold text-[10px] tracking-wider uppercase active:scale-95 transition-transform shadow-md"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Save Modal (Bottom Sheet / Centered Overlay) */}
       {isSaving && (
@@ -1011,7 +962,7 @@ export const RecorderScreen: React.FC = () => {
               </div>
               <h3 className="font-serif text-2xl font-bold text-primary">Voice Limit Reached</h3>
               <p className="text-sm text-text-muted mt-2 leading-relaxed">
-                You've used all 10 minutes of your free monthly voice quota.
+                You've used all 8 minutes of your free monthly voice quota.
               </p>
               {voiceQuota.resets_on && (
                 <p className="text-[10px] font-bold text-accent uppercase tracking-widest mt-3">
