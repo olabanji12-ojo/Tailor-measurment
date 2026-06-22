@@ -210,7 +210,15 @@ export const SettingsScreen: React.FC = () => {
   let quota = { used_seconds: 0, limit_seconds: 480, remaining_seconds: 480, warning_level: 'none', resets_on: '', is_admin: false };
   try {
     const stored = localStorage.getItem('voice_quota');
-    if (stored) quota = JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.limit_seconds > 480) {
+        parsed.limit_seconds = 480;
+        parsed.remaining_seconds = Math.max(0, 480 - parsed.used_seconds);
+        localStorage.setItem('voice_quota', JSON.stringify(parsed));
+      }
+      quota = parsed;
+    }
   } catch {}
   const pct = Math.min((quota.used_seconds / quota.limit_seconds) * 100, 100);
   const usedMin = Math.floor(quota.used_seconds / 60);

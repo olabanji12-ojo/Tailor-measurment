@@ -68,7 +68,15 @@ export const useWhisper = () => {
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota>(() => {
     try {
       const stored = localStorage.getItem('voice_quota');
-      if (stored) return JSON.parse(stored) as VoiceQuota;
+      if (stored) {
+        const parsed = JSON.parse(stored) as VoiceQuota;
+        if (parsed.limit_seconds > 480) {
+          parsed.limit_seconds = 480;
+          parsed.remaining_seconds = Math.max(0, 480 - parsed.used_seconds);
+          localStorage.setItem('voice_quota', JSON.stringify(parsed));
+        }
+        return parsed;
+      }
     } catch {}
     return DEFAULT_QUOTA;
   });
