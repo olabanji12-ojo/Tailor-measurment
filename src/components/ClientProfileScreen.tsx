@@ -687,17 +687,52 @@ export const ClientProfileScreen: React.FC = () => {
 
       </div>
 
-      {/* Floating Voice Control in Edit Mode */}
+      {/* Floating Action/Status Control Bar in Edit Mode */}
       {isEditing && (
-        <div className="fixed bottom-[110px] left-0 right-0 flex flex-col items-center gap-3 z-[60] animate-in slide-in-from-bottom-4 pointer-events-none">
-          {isListening && (
-            <div className="bg-primary/95 text-white px-6 py-3 rounded-full border border-white/5 shadow-xl flex items-center gap-3">
-              <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping"></span>
-              <p className="text-[9px] font-bold text-accent uppercase tracking-widest">Listening for commands...</p>
+        <div className="fixed bottom-[110px] left-0 right-0 z-50 px-6 pointer-events-none animate-in slide-in-from-bottom-4 duration-300">
+          <div className="w-full max-w-[450px] mx-auto bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.12)] border border-border-subtle px-4 py-2.5 flex items-center justify-between gap-3 pointer-events-auto">
+            {/* Mic Toggle Button */}
+            <button
+              onClick={toggleListening}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 border ${
+                isListening 
+                  ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/20' 
+                  : 'bg-[#FAF7F2] border-border-subtle text-primary hover:bg-[#FAF7F2]/80'
+              }`}
+              title={isListening ? "Stop Voice Mode" : "Start Voice Mode"}
+            >
+              {isListening ? (
+                <span className="flex gap-1 items-center">
+                  <span className="w-1 bg-white h-3 rounded-full animate-pulse"></span>
+                  <span className="w-1 bg-white h-4 rounded-full animate-pulse [animation-delay:0.15s]"></span>
+                  <span className="w-1 bg-white h-3 rounded-full animate-pulse [animation-delay:0.3s]"></span>
+                </span>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              )}
+            </button>
+            
+            {/* Status Text Indicator */}
+            <div className="flex-1 text-center text-xs font-semibold font-sans tracking-wide text-text-muted flex items-center justify-center gap-2">
+              {isListening ? (
+                <>
+                  <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                  <span className="text-rose-600 font-bold uppercase tracking-wider text-[10px]">Listening...</span>
+                </>
+              ) : (
+                <span className="text-text-muted">Keypad Input Active</span>
+              )}
             </div>
-          )}
-          <div className="pointer-events-auto">
-            <RecordingButton isListening={isListening} onClick={toggleListening} />
+
+            {/* Save Button */}
+            <button
+              onClick={handleSave}
+              className="bg-primary hover:bg-black text-white px-6 h-10 rounded-full font-bold text-[10px] tracking-widest uppercase active:scale-95 transition-transform shadow-md"
+            >
+              Save
+            </button>
           </div>
         </div>
       )}
