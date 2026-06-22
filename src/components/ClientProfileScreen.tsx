@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useWhisper, playSensorySound } from '../hooks/useWhisper';
-import { RecordingButton } from './RecordingButton';
 import { VirtualTryOn } from './VirtualTryOn';
 import { exportToImage } from '../utils/imageExport';
 import { shareMeasurementCard } from '../utils/shareCard';

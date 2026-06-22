@@ -67,6 +67,66 @@ const AppContent: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOnlineToast, setShowOnlineToast] = useState(false);
 
+  // Pull to Refresh Touch Gesture Tracker
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+  const isPulling = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    // Only allow pull-to-refresh on scrollable lists (Home and Archive), when scrolled to the absolute top
+    const isRefreshableRoute = ['/', '/archive'].includes(location.pathname);
+    if (isRefreshableRoute && main.scrollTop === 0 && !refreshing) {
+      startY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling.current || refreshing) return;
+
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startY.current;
+
+    if (diff > 0) {
+      // Prevent browser default pull-to-refresh logic
+      if (e.cancelable) e.preventDefault();
+      const dragResistance = 0.35;
+      const pull = Math.min(80, diff * dragResistance);
+      setPullDistance(pull);
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPulling.current || refreshing) return;
+    isPulling.current = false;
+
+    // Threshold of 50px to trigger the network fetch
+    if (pullDistance >= 50) {
+      setRefreshing(true);
+      setPullDistance(50);
+      try {
+        if (refreshSessions) {
+          await refreshSessions(1);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setRefreshing(false);
+        setPullDistance(0);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  };
+
   const syncOfflineMeasurements = async () => {
     try {
       const queue = await getOfflineQueue();
@@ -241,8 +301,46 @@ const AppContent: React.FC = () => {
   return (
     <div className="h-full flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
       
-      {/* Main Content Router */}
-      <main className="flex-1 relative overflow-y-auto custom-scrollbar">
+      {/* Main Content Router with custom Pull-To-Refresh */}
+      <main 
+        ref={mainRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="flex-1 relative overflow-y-auto custom-scrollbar"
+      >
+        {/* Pull-To-Refresh Spinner Indicator */}
+        <div 
+          className="absolute left-0 right-0 flex items-center justify-center pointer-events-none z-50"
+          style={{
+            top: `${pullDistance - 45}px`,
+            opacity: pullDistance > 10 ? 1 : 0,
+            height: '40px',
+            transition: isPulling.current ? 'none' : 'all 0.2s ease-out'
+          }}
+        >
+          <div className="bg-white rounded-full p-2 shadow-md border border-border-subtle flex items-center justify-center w-10 h-10">
+            {refreshing ? (
+              <svg className="animate-spin h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg 
+                className="h-5 w-5 text-accent transition-transform duration-200" 
+                style={{ transform: `rotate(${Math.min(180, (pullDistance / 50) * 180)}deg)` }}
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor" 
+                strokeWidth="2.5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </div>
+        </div>
+
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/clients" element={<ClientProfileScreen />} />
