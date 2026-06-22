@@ -22,7 +22,7 @@ const NavBar: React.FC = () => {
   const path = location.pathname;
   
   return (
-    <nav className="bg-white/95 backdrop-blur-md border-t border-border-subtle pt-3.5 pb-6 grid grid-cols-4 items-center z-40 relative shadow-sm">
+    <nav className="bg-white/95 backdrop-blur-md border-t border-border-subtle pt-3.5 pb-safe grid grid-cols-4 items-center z-40 relative shadow-sm">
       <Link to="/" className={`flex flex-col items-center gap-1 transition-colors ${path === '/' ? 'text-accent animate-pulse' : 'text-text-muted hover:text-primary'}`}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
