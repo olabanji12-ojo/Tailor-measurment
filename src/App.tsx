@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from './context/AppContext';
 import { HistoryView } from './components/HistoryView';
@@ -20,7 +20,7 @@ import { OptimizerScreen } from './components/optimizer/OptimizerScreen';
 const NavBar: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
-  
+
   return (
     <nav className="bg-white/95 backdrop-blur-md border-t border-border-subtle pt-3.5 pb-safe grid grid-cols-4 items-center z-40 relative shadow-sm">
       <Link to="/" className={`flex flex-col items-center gap-1 transition-colors ${path === '/' ? 'text-accent animate-pulse' : 'text-text-muted hover:text-primary'}`}>
@@ -30,7 +30,7 @@ const NavBar: React.FC = () => {
         </svg>
         <span className="text-[9px] font-bold tracking-widest uppercase mt-0.5">Home</span>
       </Link>
-      
+
       <Link to="/tryon" className={`flex flex-col items-center gap-1 transition-colors ${path === '/tryon' ? 'text-accent' : 'text-text-muted hover:text-primary'}`}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
@@ -202,7 +202,7 @@ const AppContent: React.FC = () => {
   // Overdue local alarm scheduler sweeper
   useEffect(() => {
     if (globalSessionsLoading || !globalSessions || globalSessions.length === 0) return;
-    
+
     const isNotificationsEnabled = localStorage.getItem('tailor_notifications_enabled') === 'true';
     if (!isNotificationsEnabled || Notification.permission !== 'granted') return;
 
@@ -213,23 +213,23 @@ const AppContent: React.FC = () => {
     // Scan for matching active debtor alerts
     const overdueJobs = globalSessions.filter(s => {
       if (!s.reminder_date) return false;
-      
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const remDate = new Date(s.reminder_date);
       remDate.setHours(0, 0, 0, 0);
 
       // Check if job is unpaid
       const hasBalance = (s.total_cost || 0) - (s.amount_paid || 0) > 0;
-      
+
       return hasBalance && remDate <= today;
     });
 
     if (overdueJobs.length > 0) {
       // Sound alert chimes!
       playSensorySound('success');
-      
+
       // Native system push alerts!
       new Notification("🧵 TailorVoice Production Alerts", {
         body: `You have ${overdueJobs.length} custom outfits waiting for sewing or balance collections today! Tap to check them.`,
@@ -267,7 +267,7 @@ const AppContent: React.FC = () => {
   // Auth Guard
   if (!user) {
     const hasSeenOnboarding = localStorage.getItem('tailor_onboarded');
-    
+
     return (
       <div className="h-screen overflow-y-auto custom-scrollbar">
         <Routes>
@@ -300,9 +300,9 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col bg-[#FDFDFD] text-[#111827] overflow-hidden font-sans relative">
-      
+
       {/* Main Content Router with custom Pull-To-Refresh */}
-      <main 
+      <main
         ref={mainRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -310,7 +310,7 @@ const AppContent: React.FC = () => {
         className="flex-1 relative overflow-y-auto custom-scrollbar"
       >
         {/* Pull-To-Refresh Spinner Indicator */}
-        <div 
+        <div
           className="absolute left-0 right-0 flex items-center justify-center pointer-events-none z-50"
           style={{
             top: `${pullDistance - 45}px`,
@@ -326,13 +326,13 @@ const AppContent: React.FC = () => {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             ) : (
-              <svg 
-                className="h-5 w-5 text-accent transition-transform duration-200" 
+              <svg
+                className="h-5 w-5 text-accent transition-transform duration-200"
                 style={{ transform: `rotate(${Math.min(180, (pullDistance / 50) * 180)}deg)` }}
-                xmlns="http://www.w3.org/2000/svg" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor" 
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
                 strokeWidth="2.5"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -357,7 +357,7 @@ const AppContent: React.FC = () => {
       {/* Floating Action Button (+ NEW JOB) — only on Home and Archive */}
       {showFloatingNewJob && (
         <div className="absolute bottom-[100px] left-0 right-0 flex justify-center z-50 pointer-events-none">
-          <button 
+          <button
             onClick={handleNewJobPress}
             className="pointer-events-auto bg-[#0F172A] text-white flex items-center gap-2 px-8 py-4 rounded-[32px] shadow-[0_8px_30px_rgba(15,23,42,0.3)] hover:scale-105 transition-transform"
           >
@@ -374,7 +374,7 @@ const AppContent: React.FC = () => {
       {showNewJobConfirm && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center pb-10 px-6">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowNewJobConfirm(false)}
           />
@@ -382,8 +382,8 @@ const AppContent: React.FC = () => {
           <div className="relative bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mb-5 mx-auto">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </div>
             <h3 className="font-serif text-2xl font-bold text-gray-900 text-center mb-2">Active Session</h3>
