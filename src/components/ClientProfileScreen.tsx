@@ -6,6 +6,7 @@ import { useWhisper, playSensorySound } from '../hooks/useWhisper';
 import { VirtualTryOn } from './VirtualTryOn';
 import { exportToImage } from '../utils/imageExport';
 import { shareMeasurementCard } from '../utils/shareCard';
+import { parseMeasurements } from '../utils/parser';
 
 const ANATOMICAL_LIMITS: Record<string, { min: number; max: number; label: string }> = {
   neck: { min: 10, max: 25, label: "Neck Size" },
@@ -21,13 +22,15 @@ const ANATOMICAL_LIMITS: Record<string, { min: number; max: number; label: strin
 
 
 export const ClientProfileScreen: React.FC = () => {
-  const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, findPartByLabel, shopName } = useAppContext();
+  const { viewingProfile, setViewingProfile, globalSessionsLoading, refreshSessions, shopName } = useAppContext();
   const { token } = useAuth();
   const navigate = useNavigate();
 
   const { isListening, transcript, toggleListening } = useWhisper();
 
   const [isEditing, setIsEditing] = React.useState(false);
+  const [editCustomerName, setEditCustomerName] = useState<string>('');
+  const [editGarment, setEditGarment] = useState<string>('');
   const [editTotalCost, setEditTotalCost] = React.useState<number>(0);
   const [editAmountPaid, setEditAmountPaid] = React.useState<number>(0);
   const [editDeliveryDate, setEditDeliveryDate] = React.useState<string>('');
@@ -66,6 +69,8 @@ export const ClientProfileScreen: React.FC = () => {
 
   useEffect(() => {
     if (viewingProfile) {
+      setEditCustomerName(viewingProfile.customer_name || '');
+      setEditGarment(viewingProfile.garment || '');
       setEditTotalCost(viewingProfile.total_cost || 0);
       setEditAmountPaid(viewingProfile.amount_paid || 0);
       setEditMeasurements(flattenData(viewingProfile.data));
@@ -77,10 +82,16 @@ export const ClientProfileScreen: React.FC = () => {
 
 
   // Safe manual updating with history logs
-  const updateMeasurementWithHistory = (key: string, val: number) => {
+  const updateMeasurementDirectly = (key: string, val: number) => {
     if (val < 0) return;
+    setEditMeasurements(prev => ({ ...prev, [key]: val }));
+  };
 
-    // Check outlier boundary
+  const handleBlur = (key: string, val: number) => {
+    setActivePartField(null);
+    if (val <= 0) return;
+
+    // Check outlier boundary on blur
     const normalizedKey = key.toLowerCase();
     const matchedLimitKey = Object.keys(ANATOMICAL_LIMITS).find(k => normalizedKey.includes(k));
     if (matchedLimitKey) {
@@ -94,14 +105,9 @@ export const ClientProfileScreen: React.FC = () => {
           value: val,
           message: `${limit.label} of ${val}" is statistically anomalous (Standard range: ${limit.min}" - ${limit.max}").`
         });
-        return;
       }
     }
-
-    setEditMeasurements(prev => ({ ...prev, [key]: val }));
   };
-
-
 
   const confirmAnomaly = () => {
     if (!activeWarning) return;
@@ -117,64 +123,57 @@ export const ClientProfileScreen: React.FC = () => {
     setActiveWarning(null);
   };
 
-  // Voice Merging Logic (Continuous Listen) with Sensory & Safety Integration
+  // Voice Merging Logic (Continuous Listen) with Advanced Voice Parser
   useEffect(() => {
     if (!isEditing || !transcript) return;
     
-    const words = transcript.toLowerCase().split(/\s+/);
-    
-    let newlyCapturedKey: string | null = null;
-    let newlyCapturedValue: number | null = null;
+    const result = parseMeasurements(transcript);
+    let capturedSomething = false;
 
-    // Try to match voice words to existing measurement keys
-    for (let i = 0; i < words.length - 1; i++) {
-      const labelCandidate = words[i];
-      const num = parseFloat(words[i+1]);
-      if (isNaN(num)) continue;
-
-      // Find if this label matches any existing key (or part of it)
-      const existingKey = Object.keys(editMeasurements).find(k => 
-        k.toLowerCase().includes(labelCandidate)
-      );
-
-      if (existingKey) {
-        newlyCapturedKey = existingKey;
-        newlyCapturedValue = num;
-      } else {
-        // If not found in existing, check global parts
-        const globalPart = findPartByLabel(labelCandidate);
-        if (globalPart) {
-          newlyCapturedKey = globalPart;
-          newlyCapturedValue = num;
-        }
+    // Handle structural commands from voice
+    result.commands.forEach(cmd => {
+      if (cmd.type === 'finish') {
+        handleSave();
+      } else if (cmd.type === 'add' && cmd.target && cmd.value) {
+        const safePart = cmd.target.toLowerCase().replace(/\s+/g, '_');
+        setEditMeasurements(prev => ({ ...prev, [safePart]: cmd.value! }));
+        setLastCaptured(safePart);
+        capturedSomething = true;
       }
-    }
+    });
 
-    if (newlyCapturedKey && newlyCapturedValue !== null) {
-      // Outlier Boundary Check
-      const normalizedKey = newlyCapturedKey.toLowerCase();
-      const matchedLimitKey = Object.keys(ANATOMICAL_LIMITS).find(k => normalizedKey.includes(k));
-      
-      if (matchedLimitKey) {
-        const limit = ANATOMICAL_LIMITS[matchedLimitKey];
-        if (newlyCapturedValue < limit.min || newlyCapturedValue > limit.max) {
-          playSensorySound('error');
-          setBorderStatus('anomaly');
-          setTimeout(() => setBorderStatus('idle'), 1500);
-          setActiveWarning({
-            part: newlyCapturedKey,
-            value: newlyCapturedValue,
-            message: `${limit.label} of ${newlyCapturedValue}" is statistically anomalous (Standard range: ${limit.min}" - ${limit.max}").`
-          });
-          return;
+    // Handle measurements
+    Object.entries(result.measurements).forEach(([part, val]) => {
+      const targetKey = 
+        Object.keys(editMeasurements).find(k => k.toLowerCase() === part.toLowerCase()) ||
+        Object.keys(editMeasurements).find(k => k.toLowerCase().includes(part.toLowerCase()));
+
+      if (targetKey && editMeasurements[targetKey] !== val) {
+        const normalizedKey = targetKey.toLowerCase();
+        const matchedLimitKey = Object.keys(ANATOMICAL_LIMITS).find(k => normalizedKey.includes(k));
+        
+        if (matchedLimitKey) {
+          const limit = ANATOMICAL_LIMITS[matchedLimitKey];
+          if (val < limit.min || val > limit.max) {
+            playSensorySound('error');
+            setBorderStatus('anomaly');
+            setTimeout(() => setBorderStatus('idle'), 1500);
+            setActiveWarning({
+              part: targetKey,
+              value: val,
+              message: `${limit.label} of ${val}" is statistically anomalous (Standard range: ${limit.min}" - ${limit.max}").`
+            });
+            return;
+          }
         }
-      }
 
-      const targetKey = newlyCapturedKey;
-      const targetVal = newlyCapturedValue;
-      setEditMeasurements(prev => ({ ...prev, [targetKey]: targetVal }));
-      setLastCaptured(newlyCapturedKey);
-      
+        setEditMeasurements(prev => ({ ...prev, [targetKey]: val }));
+        setLastCaptured(targetKey);
+        capturedSomething = true;
+      }
+    });
+
+    if (capturedSomething) {
       playSensorySound('success');
       setBorderStatus('success');
       setTimeout(() => {
@@ -195,6 +194,8 @@ export const ClientProfileScreen: React.FC = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          customer_name: editCustomerName,
+          garment: editGarment,
           total_cost: Number(editTotalCost),
           amount_paid: Number(editAmountPaid),
           delivery_date: editDeliveryDate,
@@ -209,6 +210,8 @@ export const ClientProfileScreen: React.FC = () => {
         // Update local state too
         setViewingProfile({
           ...viewingProfile,
+          customer_name: editCustomerName,
+          garment: editGarment,
           total_cost: Number(editTotalCost),
           amount_paid: Number(editAmountPaid),
           delivery_date: editDeliveryDate,
@@ -330,96 +333,176 @@ export const ClientProfileScreen: React.FC = () => {
           </div>
 
           {/* Client Header Name */}
-          <div className="text-center">
-            <span className="font-serif text-[11px] italic tracking-wide text-text-muted">Cormorant Garamond</span>
-            <h2 className="font-serif text-3.5xl font-semibold text-primary tracking-wide leading-tight mt-1 uppercase">
-              {viewingProfile.customer_name}
-            </h2>
+          <div className="text-center px-4">
+            {isEditing ? (
+              <div className="space-y-1.5 text-left w-full">
+                <label className="text-[10px] font-bold text-accent uppercase tracking-widest block">Customer Name</label>
+                <input 
+                  type="text" 
+                  value={editCustomerName}
+                  onChange={e => setEditCustomerName(e.target.value)}
+                  className="w-full bg-white border border-border-subtle rounded-2xl px-4 py-3 text-lg font-bold font-serif text-primary focus:border-accent outline-none shadow-sm"
+                  placeholder="Client Name"
+                />
+              </div>
+            ) : (
+              <>
+                <span className="font-serif text-[11px] italic tracking-wide text-text-muted">Cormorant Garamond</span>
+                <h2 className="font-serif text-3.5xl font-semibold text-primary tracking-wide leading-tight mt-1 uppercase">
+                  {viewingProfile.customer_name}
+                </h2>
+              </>
+            )}
           </div>
 
           {/* Balance Badges */}
-          <div className="flex justify-center">
-            {balanceOwed > 0 ? (
-              <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-rose-50 text-rose-600 text-[11px] font-bold tracking-wide uppercase border border-rose-100">
-                Owes ₦{balanceOwed}
-              </div>
-            ) : viewingProfile.total_cost > 0 ? (
-              <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold tracking-wide uppercase border border-emerald-100">
-                Paid in Full
-              </div>
-            ) : null}
-          </div>
+          {!isEditing && (
+            <div className="flex justify-center">
+              {balanceOwed > 0 ? (
+                <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-rose-50 text-rose-600 text-[11px] font-bold tracking-wide uppercase border border-rose-100">
+                  Owes ₦{balanceOwed}
+                </div>
+              ) : viewingProfile.total_cost > 0 ? (
+                <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold tracking-wide uppercase border border-emerald-100">
+                  Paid in Full
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Side-by-side Actions (WhatsApp & Share) */}
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                const cachedPhone = localStorage.getItem(`phone_${viewingProfile.id}`) || '';
-                const message = `Hello ${viewingProfile.customer_name}! 🧵 This is a friendly update regarding your fitting. Your measurements are logged in our atelier.`;
-                const cleanPhone = cachedPhone.replace(/\D/g, '');
-                if (cleanPhone) {
-                  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
-                } else {
-                  const phone = prompt("Enter client phone number:", "");
-                  if (phone) {
-                    localStorage.setItem(`phone_${viewingProfile.id}`, phone);
-                    window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+          {!isEditing && (
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  const cachedPhone = localStorage.getItem(`phone_${viewingProfile.id}`) || '';
+                  const message = `Hello ${viewingProfile.customer_name}! 🧵 This is a friendly update regarding your fitting. Your measurements are logged in our atelier.`;
+                  const cleanPhone = cachedPhone.replace(/\D/g, '');
+                  if (cleanPhone) {
+                    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+                  } else {
+                    const phone = prompt("Enter client phone number:", "");
+                    if (phone) {
+                      localStorage.setItem(`phone_${viewingProfile.id}`, phone);
+                      window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                    }
                   }
-                }
-              }}
-              className="h-12 bg-bg-secondary/60 hover:bg-bg-secondary hover:text-primary transition-colors text-text-muted rounded-2xl font-sans text-xs font-semibold flex items-center justify-center gap-2 border border-border-subtle active:scale-98"
-            >
-              <span className="text-sm">💬</span> WhatsApp
-            </button>
-            
-            <button
-              onClick={async () => {
-                setIsSharing(true);
-                try {
-                  await shareMeasurementCard({
-                    customerName: viewingProfile.customer_name,
-                    shopName,
-                    garments: viewingProfile.garment ? [viewingProfile.garment] : [],
-                    measurementsByGarment: { [viewingProfile.garment || 'Outfit']: editMeasurements },
-                    getLabel: (p) => p,
-                    unit: viewingProfile.unit || 'in',
-                    deliveryDate: viewingProfile.delivery_date || '',
-                    totalCost: viewingProfile.total_cost,
-                    amountPaid: viewingProfile.amount_paid,
-                  });
-                } catch (e) { }
-                finally { setIsSharing(false); }
-              }}
-              className="h-12 bg-bg-secondary/60 hover:bg-bg-secondary hover:text-primary transition-colors text-text-muted rounded-2xl font-sans text-xs font-semibold flex items-center justify-center gap-2 border border-border-subtle active:scale-98"
-            >
-              {isSharing ? (
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="text-sm">🔗</span>
-              )}
-              {isSharing ? 'Sharing...' : 'Share'}
-            </button>
-          </div>
-
-          {/* Active Order Pill */}
-          <div className="px-1">
-            <div className="bg-primary rounded-[32px] p-6 shadow-xl flex justify-between items-center text-white cursor-pointer hover:bg-black transition-colors border border-accent/15">
-              <div>
-                <h4 className="font-serif text-lg font-medium text-accent">Active Order</h4>
-                <p className="text-[10px] text-white/60 uppercase tracking-wider">{viewingProfile.garment || 'Custom Outfit'}</p>
-              </div>
-              <div className="flex gap-4 items-center">
-                <div className="text-right">
-                  <span className="block text-[8px] font-bold text-white/40 uppercase tracking-[0.2em] mb-1">REMINDER</span>
-                  <span className="font-bold text-xs tracking-wide text-accent">{displayReminderDate}</span>
-                </div>
-                <div className="h-8 w-[1px] bg-white/20"></div>
-                <div className="text-right">
-                  <span className="block text-[8px] font-bold text-white/40 uppercase tracking-[0.2em] mb-1">DUE DATE</span>
-                  <span className="font-bold text-xs tracking-wide">{dueDate}</span>
-                </div>
-              </div>
+                }}
+                className="h-12 bg-bg-secondary/60 hover:bg-bg-secondary hover:text-primary transition-colors text-text-muted rounded-2xl font-sans text-xs font-semibold flex items-center justify-center gap-2 border border-border-subtle active:scale-98"
+              >
+                <span className="text-sm">💬</span> WhatsApp
+              </button>
+              
+              <button
+                onClick={async () => {
+                  setIsSharing(true);
+                  try {
+                    await shareMeasurementCard({
+                      customerName: viewingProfile.customer_name,
+                      shopName,
+                      garments: viewingProfile.garment ? [viewingProfile.garment] : [],
+                      measurementsByGarment: { [viewingProfile.garment || 'Outfit']: editMeasurements },
+                      getLabel: (p) => p,
+                      unit: viewingProfile.unit || 'in',
+                      deliveryDate: viewingProfile.delivery_date || '',
+                      totalCost: viewingProfile.total_cost,
+                      amountPaid: viewingProfile.amount_paid,
+                    });
+                  } catch (e) { }
+                  finally { setIsSharing(false); }
+                }}
+                className="h-12 bg-bg-secondary/60 hover:bg-bg-secondary hover:text-primary transition-colors text-text-muted rounded-2xl font-sans text-xs font-semibold flex items-center justify-center gap-2 border border-border-subtle active:scale-98"
+              >
+                {isSharing ? (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-sm">🔗</span>
+                )}
+                {isSharing ? 'Sharing...' : 'Share'}
+              </button>
             </div>
+          )}
+
+          {/* Active Order Pill / Order Edit Form */}
+          <div className="px-1">
+            {isEditing ? (
+              <div className="bg-white border border-border-subtle rounded-[32px] p-6 shadow-sm space-y-4">
+                <h4 className="font-serif text-lg font-semibold text-primary border-b border-border-subtle pb-2">Order Details</h4>
+                
+                <div>
+                  <label className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-1">Garment Type</label>
+                  <input 
+                    type="text" 
+                    value={editGarment}
+                    onChange={e => setEditGarment(e.target.value)}
+                    className="w-full bg-bg-secondary/45 rounded-xl px-4 py-2.5 text-sm font-bold border border-border-subtle focus:border-accent outline-none"
+                    placeholder="e.g. Senator, Kaftan"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-1">Total Cost (₦)</label>
+                    <input 
+                      type="number" 
+                      value={editTotalCost || ''}
+                      onChange={e => setEditTotalCost(Number(e.target.value))}
+                      className="w-full bg-bg-secondary/45 rounded-xl px-4 py-2.5 text-sm font-bold border border-border-subtle focus:border-accent outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-1">Amount Paid (₦)</label>
+                    <input 
+                      type="number" 
+                      value={editAmountPaid || ''}
+                      onChange={e => setEditAmountPaid(Number(e.target.value))}
+                      className="w-full bg-bg-secondary/45 rounded-xl px-4 py-2.5 text-sm font-bold border border-border-subtle focus:border-accent outline-none"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-1">Reminder Date</label>
+                    <input 
+                      type="date" 
+                      value={editReminderDate}
+                      onChange={e => setEditReminderDate(e.target.value)}
+                      className="w-full bg-bg-secondary/45 rounded-xl px-4 py-2.5 text-sm font-bold border border-border-subtle focus:border-accent outline-none text-text-muted"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-1">Delivery Date</label>
+                    <input 
+                      type="date" 
+                      value={editDeliveryDate}
+                      onChange={e => setEditDeliveryDate(e.target.value)}
+                      className="w-full bg-bg-secondary/45 rounded-xl px-4 py-2.5 text-sm font-bold border border-border-subtle focus:border-accent outline-none text-text-muted"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-primary rounded-[32px] p-6 shadow-xl flex justify-between items-center text-white cursor-pointer hover:bg-black transition-colors border border-accent/15">
+                <div>
+                  <h4 className="font-serif text-lg font-medium text-accent">Active Order</h4>
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">{viewingProfile.garment || 'Custom Outfit'}</p>
+                </div>
+                <div className="flex gap-4 items-center">
+                  <div className="text-right">
+                    <span className="block text-[8px] font-bold text-white/40 uppercase tracking-[0.2em] mb-1">REMINDER</span>
+                    <span className="font-bold text-xs tracking-wide text-accent">{displayReminderDate}</span>
+                  </div>
+                  <div className="h-8 w-[1px] bg-white/20"></div>
+                  <div className="text-right">
+                    <span className="block text-[8px] font-bold text-white/40 uppercase tracking-[0.2em] mb-1">DUE DATE</span>
+                    <span className="font-bold text-xs tracking-wide">{dueDate}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Atelier Actions (optimizer, calendar, download) */}
@@ -444,6 +527,27 @@ export const ClientProfileScreen: React.FC = () => {
                 <p className="text-[9px] text-[#FAF7F2]/60 font-bold uppercase tracking-widest">Calculate fabric for this client</p>
               </div>
               <div className="ml-auto opacity-50 group-hover:opacity-100 transition-opacity">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </div>
+            </button>
+
+            {/* Virtual Try-On Styling Lab */}
+            <button 
+              onClick={() => setShowTryOn(true)}
+              className="w-full bg-white border border-border-subtle rounded-[24px] p-6 shadow-sm flex items-center gap-4 text-primary group active:scale-95 transition-all hover:border-accent/40"
+            >
+              <div className="w-12 h-12 bg-bg-secondary rounded-2xl flex items-center justify-center text-accent shadow-inner">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 21a6 6 0 0 0-12 0" />
+                  <circle cx="12" cy="10" r="4" />
+                  <path d="M12 2v2M12 14v4" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <h4 className="font-serif text-lg font-semibold">Virtual Try-On</h4>
+                <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest">Live mannequin styling lab</p>
+              </div>
+              <div className="ml-auto opacity-30 group-hover:opacity-100 transition-opacity">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent"><polyline points="9 18 15 12 9 6"></polyline></svg>
               </div>
             </button>
@@ -600,7 +704,9 @@ export const ClientProfileScreen: React.FC = () => {
                             <input 
                               type="number" 
                               value={value || ''} 
-                              onChange={e => updateMeasurementWithHistory(label, Number(e.target.value))}
+                              onChange={e => updateMeasurementDirectly(label, Number(e.target.value))}
+                              onBlur={() => handleBlur(label, value)}
+                              onFocus={e => e.target.select()}
                               className="w-full bg-transparent p-0 text-2xl font-bold font-sans text-primary outline-none focus:ring-0 border-none"
                               autoFocus
                             />

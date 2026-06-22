@@ -588,15 +588,19 @@ export const RecorderScreen: React.FC = () => {
         
         {/* Floating Subtitle / Ticker ribbon */}
         {lastTranscript && (
-          <div className={`mx-auto w-full max-w-[450px] rounded-2xl px-4 py-3 text-center text-xs font-medium text-white shadow-lg pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-            noMatchHint ? 'bg-amber-600/95 border border-amber-500/20' : 'bg-primary/95 border border-white/5'
+          <div className={`mx-auto w-full max-w-[450px] rounded-2xl px-4 py-3 text-center text-xs font-medium shadow-[0_8px_30px_rgba(0,0,0,0.08)] border pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+            noMatchHint 
+              ? 'bg-amber-50 border-amber-200 text-amber-900' 
+              : 'bg-white/95 backdrop-blur-md text-primary border-border-subtle'
           }`}>
-            <span className="text-[9px] font-bold text-accent uppercase tracking-widest block mb-0.5">
+            <span className={`text-[9px] font-bold uppercase tracking-widest block mb-0.5 ${
+              noMatchHint ? 'text-amber-800' : 'text-accent'
+            }`}>
               {noMatchHint ? '⚠️ No Match Found' : 'Transcribed Voice:'}
             </span>
             <p className="italic font-sans">"{lastTranscript}"</p>
             {noMatchHint && (
-              <p className="text-[9px] text-amber-200 mt-1">Try: "Waist 32" or tap a card to speak numbers directly.</p>
+              <p className="text-[9px] text-amber-700/80 mt-1 font-semibold">Try: "Waist 32" or tap a card to speak numbers directly.</p>
             )}
           </div>
         )}
@@ -645,42 +649,42 @@ export const RecorderScreen: React.FC = () => {
                   className="fixed inset-0 z-[60]"
                   onClick={() => setShowQuotaInfo(false)}
                 />
-                <div className="absolute bottom-full right-0 mb-2 z-[70] w-64 bg-primary text-white rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 border border-white/5">
+                <div className="absolute bottom-full right-0 mb-2 z-[70] w-64 bg-white text-primary border border-border-subtle rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="text-[9px] font-bold text-accent uppercase tracking-widest mb-2">Voice Quota</div>
                   <p className="text-sm leading-relaxed font-sans">
                     You've used{' '}
                     <span className={`font-bold ${
-                      voiceState === 'exceeded' ? 'text-text-muted'
-                      : voiceState === 'urgent' ? 'text-orange-400'
-                      : voiceState === 'warning' ? 'text-amber-400'
+                      voiceState === 'exceeded' ? 'text-rose-500'
+                      : voiceState === 'urgent' ? 'text-orange-600'
+                      : voiceState === 'warning' ? 'text-amber-600'
                       : 'text-accent'
                     }`}>
                       {formatSeconds(voiceQuota.used_seconds)}
                     </span>{' '}
                     of your{' '}
-                    <span className="font-bold text-white">
+                    <span className="font-bold">
                       {Math.floor(voiceQuota.limit_seconds / 60)} min
                     </span>{' '}
                     free monthly voice quota.{' '}
                     {voiceQuota.remaining_seconds > 0 ? (
                       <>
                         You have{' '}
-                        <span className="font-bold text-white">
+                        <span className="font-bold">
                           {formatSeconds(voiceQuota.remaining_seconds)}
                         </span>{' '}
                         remaining.
                       </>
                     ) : (
-                      <span className="text-rose-400 font-bold">Your quota is fully used.</span>
+                      <span className="text-rose-500 font-bold block mt-1">Quota exceeded. Using manual input.</span>
                     )}
                   </p>
                   {voiceQuota.resets_on && (
-                    <p className="text-[10px] text-white/40 mt-2 font-medium">
+                    <p className="text-[10px] text-text-muted mt-2 font-medium">
                       Resets {voiceQuota.resets_on} · Manual keypad always free ✏️
                     </p>
                   )}
                   {/* Downward caret */}
-                  <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-primary rotate-45 rounded-sm border-r border-b border-white/5" />
+                  <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-white rotate-45 rounded-sm border-r border-b border-border-subtle" />
                 </div>
               </>
             )}
