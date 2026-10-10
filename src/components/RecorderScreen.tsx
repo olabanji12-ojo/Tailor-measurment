@@ -1,0 +1,1276 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useWhisper, playSensorySound } from '../hooks/useWhisper';
+import { parseMeasurements, getPartSynonyms } from '../utils/parser';
+import { NumPad } from './NumPad';
+import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { playCaptureSound } from '../utils/soundUtils';
+import { shareMeasurementCard } from '../utils/shareCard';
+import { saveOfflineMeasurement } from '../utils/db';
+import { MeasurementCard } from './ui/MeasurementCard';
+import { uploadImage, getFabricThumbnailUrl, type UploadProgressInfo } from '../services/imageUpload';
+import { formatBytes } from '../utils/imageCompressor';
+
+
+export const RecorderScreen: React.FC = () => {
+  const { isListening, isTranscribing, transcript, voiceQuota, recordingSeconds, toggleListening, clearTranscript } = useWhisper();
+  const { unit, shopName, getLabel, findPartByLabel, currentSession, startSession, clearSession, updateSessionMeasurements, addGarmentToSession, removeGarmentFromSession, addCustomPart, customParts, garmentTemplates, refreshSessions } = useAppContext();
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
+
+  const [inputMode, setInputMode] = useState<'voice' | 'manual'>('voice');
+  const [activeTabIdx, setActiveTabIdx] = useState(0);
+  const [isAddingGarment, setIsAddingGarment] = useState(false);
+  const [isAddingCustomPart, setIsAddingCustomPart] = useState(false);
+  const [newCustomPart, setNewCustomPart] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
+  const [showVoiceHint, setShowVoiceHint] = useState<boolean>(() => {
+    return localStorage.getItem('voice_hint_dismissed') !== 'true';
+  });
+  
+  const [measurementsByGarment, setMeasurementsByGarment] = useState<Record<string, Record<string, number>>>(() => {
+    // Restore from persisted session if available
+    if (currentSession?.measurements && Object.keys(currentSession.measurements).length > 0) {
+      return currentSession.measurements;
+    }
+    const init: Record<string, Record<string, number>> = {};
+    if (currentSession?.garments) {
+      currentSession.garments.forEach(g => { init[g] = {}; });
+    }
+    return init;
+  });
+
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(currentSession?.customerName || '');
+  const [numPadPart, setNumPadPart] = useState<string | null>(null);
+  const [targetedPart, setTargetedPart] = useState<string | null>(null);
+  
+  // Just Captured UI state
+  const [lastCaptured, setLastCaptured] = useState<string | null>(null);
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+  const [noMatchHint, setNoMatchHint] = useState(false);
+
+  const [stylePhotos, setStylePhotos] = useState<string[]>([]);
+  const [clothPhotos, setClothPhotos] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState<'style' | 'cloth' | null>(null);
+  const [uploadProgressText, setUploadProgressText] = useState('');
+  const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
+  const [uploadError, setUploadError] = useState<{ type: 'style' | 'cloth'; msg: string; file: File } | null>(null);
+  const styleInputRef = useRef<HTMLInputElement>(null);
+  const clothInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice quota state
+  const [showQuotaSheet, setShowQuotaSheet] = useState(false);
+  const [showQuotaInfo, setShowQuotaInfo] = useState(false);
+
+  // Derived voice state from quota
+  const voiceState = (() => {
+    if (voiceQuota.is_admin) return 'normal';
+    if (voiceQuota.warning_level === 'exceeded') return 'exceeded';
+    if (voiceQuota.warning_level === 'urgent') return 'urgent';
+    if (voiceQuota.warning_level === 'warning') return 'warning';
+    return 'normal';
+  })();
+
+  const formatSeconds = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}m ${sec > 0 ? ` ${sec}s` : ''}`;
+  };
+
+  const activeGarmentName = currentSession?.garments[activeTabIdx] || '';
+  const currentTemplate = garmentTemplates.find(t => t.name === activeGarmentName);
+  const activeParts = currentTemplate ? Array.from(new Set([...currentTemplate.parts, ...customParts])) : [];
+  const activeMeasurements = measurementsByGarment[activeGarmentName] || {};
+
+  useEffect(() => {
+    if (inputMode !== 'voice' || !transcript || !activeGarmentName) return;
+    
+    // Show the transcript preview in the UI
+    setLastTranscript(transcript);
+
+    // 🎤 Card-Level Micro-Mic Trigger Handling
+    if (targetedPart) {
+      const match = transcript.match(/\d+(\.\d+)?/);
+      if (match) {
+        const val = parseFloat(match[0]);
+        setMeasurementsByGarment(prev => ({
+          ...prev,
+          [activeGarmentName]: { ...prev[activeGarmentName], [targetedPart]: val }
+        }));
+        updateSessionMeasurements(activeGarmentName, targetedPart, val);
+        setLastCaptured(targetedPart);
+        playCaptureSound();
+        setTargetedPart(null);
+        clearTranscript();
+        setTimeout(() => setLastCaptured(null), 2000);
+        return;
+      }
+    }
+    
+    const result = parseMeasurements(transcript);
+    let capturedSomething = false;
+
+    // Handle Commands
+    result.commands.forEach(cmd => {
+      switch (cmd.type) {
+        case 'finish':
+          setIsSaving(true);
+          break;
+        case 'clear':
+          if (cmd.target) {
+            const target = findPartByLabel(cmd.target);
+            if (target) {
+              setMeasurementsByGarment(prev => ({
+                ...prev,
+                [activeGarmentName]: { ...prev[activeGarmentName], [target]: 0 }
+              }));
+              // We delete it from the object effectively
+              setMeasurementsByGarment(prev => {
+                const next = { ...prev[activeGarmentName] };
+                delete next[target];
+                return { ...prev, [activeGarmentName]: next };
+              });
+            }
+          } else {
+            setLastCaptured(null);
+          }
+          break;
+        case 'next':
+          const nextEmptyIdx = activeParts.findIndex(p => !activeMeasurements[p]);
+          if (nextEmptyIdx !== -1) {
+            // Simplified: jump focus to next empty
+          }
+          break;
+        case 'add':
+          if (cmd.target && cmd.value) {
+            const safePart = cmd.target.toLowerCase().replace(/\s+/g, '_');
+            addCustomPart(safePart);
+            setMeasurementsByGarment(prev => ({
+              ...prev,
+              [activeGarmentName]: { ...prev[activeGarmentName], [safePart]: cmd.value! }
+            }));
+            setLastCaptured(safePart);
+            playCaptureSound();
+            capturedSomething = true;
+          }
+          break;
+      }
+    });
+
+    // Helper to resolve spoken part to an active template part (exact -> synonym -> custom label)
+    const resolveTargetKey = (partKey: string): string | undefined => {
+      const lower = partKey.toLowerCase();
+      // 1. Direct exact match in activeParts
+      const direct = activeParts.find(p => p.toLowerCase() === lower);
+      if (direct) return direct;
+
+      // 2. Cross-garment synonym fallback (e.g. lap <-> thigh, round_sleeve <-> bicep, cap_size <-> head_circumference)
+      const synonyms = getPartSynonyms(lower);
+      for (const syn of synonyms) {
+        const found = activeParts.find(p => p.toLowerCase() === syn.toLowerCase());
+        if (found) return found;
+      }
+
+      // 3. Match by user custom label
+      for (const p of activeParts) {
+        if (getLabel(p).toLowerCase() === lower) return p;
+      }
+
+      return undefined;
+    };
+
+    // Ambiguous term warning (prevents silent misclassification e.g. "hand 25")
+    if (result.ambiguous && result.ambiguous.length > 0) {
+      const amb = result.ambiguous[0];
+      setNoMatchHint(true);
+      setLastTranscript(`⚠️ Ambiguous term "${amb.term} ${amb.value}" detected. Tap card to assign directly.`);
+      setTimeout(() => setNoMatchHint(false), 4500);
+    }
+
+    // Handle Measurements
+    Object.entries(result.measurements).forEach(([part, val]) => {
+      const targetKey = resolveTargetKey(part);
+
+      if (targetKey && activeMeasurements[targetKey] !== val) {
+        // Update local UI state
+        setMeasurementsByGarment(prev => ({
+          ...prev,
+          [activeGarmentName]: { ...prev[activeGarmentName], [targetKey]: val }
+        }));
+        // Persist to context
+        updateSessionMeasurements(activeGarmentName, targetKey, val);
+        setLastCaptured(targetKey);
+        playCaptureSound();
+        capturedSomething = true;
+      }
+    });
+
+    if (capturedSomething) {
+      setTimeout(() => setLastCaptured(null), 2000);
+      setNoMatchHint(false);
+      setTimeout(() => setLastTranscript(null), 4000);
+      clearTranscript();
+      return;
+    }
+
+    // 🧠 AI Fallback Calibrator Bridge: If heuristic parsing failed, call Go Server /api/parse-voice!
+    const triggerAIFallback = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/parse-voice`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ text: transcript })
+        });
+        
+        if (!res.ok) throw new Error('AI Translator Unavailable');
+        
+        const aiParsed: Record<string, number> = await res.json();
+        let aiCaptured = false;
+
+        Object.entries(aiParsed).forEach(([part, val]) => {
+          const targetKey = resolveTargetKey(part);
+
+          if (targetKey && activeMeasurements[targetKey] !== val) {
+            setMeasurementsByGarment(prev => ({
+              ...prev,
+              [activeGarmentName]: { ...prev[activeGarmentName], [targetKey]: val }
+            }));
+            updateSessionMeasurements(activeGarmentName, targetKey, val);
+            setLastCaptured(targetKey);
+            playCaptureSound();
+            aiCaptured = true;
+          }
+        });
+
+        if (aiCaptured) {
+          setTimeout(() => setLastCaptured(null), 2000);
+          setNoMatchHint(false);
+        } else {
+          setNoMatchHint(true);
+          setTimeout(() => setNoMatchHint(false), 4000);
+        }
+      } catch (err) {
+        console.error('Failed to parse with AI:', err);
+        setNoMatchHint(true);
+        setTimeout(() => setNoMatchHint(false), 4000);
+      }
+    };
+
+    triggerAIFallback();
+
+    // Clear UI transcript after 4 seconds
+    setTimeout(() => setLastTranscript(null), 4000);
+
+    // CRITICAL: Clear engine transcript after processing
+    clearTranscript();
+  }, [transcript]);
+
+  const handleNumPadClear = () => {
+    if (!numPadPart || !activeGarmentName) return;
+    setMeasurementsByGarment(prev => {
+      const nextTab = { ...prev[activeGarmentName] };
+      delete nextTab[numPadPart];
+      return { ...prev, [activeGarmentName]: nextTab };
+    });
+    setNumPadPart(null);
+  };
+
+  const handleNumPadConfirm = (value: number) => {
+    if (!numPadPart || !activeGarmentName) return;
+    setMeasurementsByGarment(prev => ({
+      ...prev,
+      [activeGarmentName]: { ...prev[activeGarmentName], [numPadPart]: value }
+    }));
+    setNumPadPart(null);
+  };
+
+  const handleNumPadNext = (value: number) => {
+    if (!numPadPart || !activeGarmentName) return;
+    setMeasurementsByGarment(prev => ({
+      ...prev,
+      [activeGarmentName]: { ...prev[activeGarmentName], [numPadPart]: value }
+    }));
+    const currentIdx = activeParts.indexOf(numPadPart);
+    const nextPart = activeParts[currentIdx + 1];
+    setNumPadPart(nextPart || null);
+  };
+
+  const executePhotoUpload = async (file: File, type: 'style' | 'cloth') => {
+    setIsUploading(type);
+    setUploadError(null);
+    setUploadProgressPercent(0);
+    setUploadProgressText('Optimizing image...');
+
+    try {
+      const result = await uploadImage(file, {
+        category: type === 'cloth' ? 'fabric' : 'style',
+        token: token || undefined,
+        onProgress: (info: UploadProgressInfo) => {
+          const pct = info.progressPercent ?? info.percentage ?? 0;
+          setUploadProgressPercent(pct);
+          if (info.stage === 'compressing') {
+            setUploadProgressText(`Compressing... (${formatBytes(info.originalBytes || info.originalSize || 0)} → ~${formatBytes(info.compressedBytes || info.compressedSize || 0)})`);
+          } else if (info.stage === 'uploading') {
+            setUploadProgressText(`Uploading (${pct}%)...`);
+          } else if (info.stage === 'retrying') {
+            setUploadProgressText('Retrying upload...');
+          }
+        }
+      });
+
+      if (type === 'style') {
+        setStylePhotos(prev => [...prev, result.url].slice(0, 3));
+      } else {
+        setClothPhotos(prev => [...prev, result.url].slice(0, 3));
+      }
+      setUploadProgressText('');
+      setUploadProgressPercent(0);
+    } catch (err: any) {
+      console.error(`${type} photo upload failed:`, err);
+      setUploadError({
+        type,
+        msg: err?.message || 'Upload failed. Check connection.',
+        file
+      });
+    } finally {
+      setIsUploading(null);
+      if (type === 'style' && styleInputRef.current) styleInputRef.current.value = '';
+      if (type === 'cloth' && clothInputRef.current) clothInputRef.current.value = '';
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'style' | 'cloth') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await executePhotoUpload(file, type);
+  };
+
+  const handleSaveToBackend = async () => {
+    if (!currentSession?.customerName) return;
+
+    // Offline Save Safeguard
+    const clientOpId = `meas_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (!navigator.onLine) {
+      try {
+        await saveOfflineMeasurement({
+          customerId: currentSession.customerId,
+          customerName: currentSession.customerName,
+          customerPhone: currentSession.customerPhone,
+          gender: currentSession.gender || 'other',
+          garments: currentSession.garments,
+          deadline: currentSession.deadline,
+          reminderDate: currentSession.reminderDate,
+          totalCost: currentSession.totalCost || 0,
+          amountPaid: currentSession.amountPaid || 0,
+          photos: [...stylePhotos, ...(currentSession.photos || [])],
+          clientPhoto: currentSession.clientPhoto || undefined,
+          measurements: measurementsByGarment,
+          data: measurementsByGarment,
+          userId: user?.id,
+          clientOperationId: clientOpId,
+        });
+        
+        playSensorySound('success');
+        setIsSaved(true);
+        setTimeout(() => {
+          setIsSaving(false);
+          clearTranscript();
+          clearSession();
+          navigate('/');
+        }, 3500);
+      } catch (err) {
+        console.error("IndexedDB cache save failed:", err);
+        playSensorySound('error');
+        alert("⚠️ Error: Offline local cache failed to save.");
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/measurements`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-Shop-ID': shopName,
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customer_id: currentSession.customerId,
+          customer_name: currentSession.customerName,
+          customer_phone: currentSession.customerPhone,
+          gender: currentSession.gender,
+          garment: currentSession.garments.join(', '), 
+          delivery_date: currentSession.deadline,
+          reminder_date: currentSession.reminderDate,
+          data: measurementsByGarment,
+          measurements: measurementsByGarment,
+          client_operation_id: clientOpId,
+          transcript,
+          unit,
+          shop_id: shopName,
+          style_photos: [...stylePhotos, ...(currentSession.photos || [])],
+          cloth_photos: clothPhotos,
+          total_cost: currentSession.totalCost,
+          amount_paid: currentSession.amountPaid,
+          client_photo: currentSession.clientPhoto,
+        }),
+      });
+      if (res.ok) {
+        setIsSaved(true);
+        refreshSessions(1); // Trigger background sync
+        setTimeout(() => {
+          setIsSaving(false);
+          clearTranscript();
+          clearSession();
+          navigate('/');
+        }, 3500); // 3.5 seconds of celebration
+      } else {
+        throw new Error('Server returned non-ok status');
+      }
+    } catch (err) { 
+      // Fallback to offline local cache if server fails
+      try {
+        await saveOfflineMeasurement({
+          customerId: currentSession.customerId,
+          customerName: currentSession.customerName,
+          customerPhone: currentSession.customerPhone,
+          gender: currentSession.gender || 'other',
+          garments: currentSession.garments,
+          deadline: currentSession.deadline,
+          reminderDate: currentSession.reminderDate,
+          totalCost: currentSession.totalCost || 0,
+          amountPaid: currentSession.amountPaid || 0,
+          photos: [...stylePhotos, ...(currentSession.photos || [])],
+          clientPhoto: currentSession.clientPhoto || undefined,
+          measurements: measurementsByGarment,
+          data: measurementsByGarment,
+          userId: user?.id,
+          clientOperationId: clientOpId,
+        });
+        
+        playSensorySound('success');
+        setIsSaved(true);
+        setTimeout(() => {
+          setIsSaving(false);
+          clearTranscript();
+          clearSession();
+          navigate('/');
+        }, 3500);
+      } catch (dbErr) {
+        playSensorySound('error');
+        alert('Server Error & Local cache failed to save.');
+      }
+    }
+  };
+
+  const getGoogleCalendarUrl = () => {
+    if (!currentSession) return '';
+    const title = encodeURIComponent(`DELIVERY: ${currentSession.customerName} - ${currentSession.garments.join(', ')}`);
+    // Format YYYYMMDD
+    const dateStr = currentSession.deadline.replace(/-/g, '');
+    const dates = `${dateStr}/${dateStr}`; 
+    const details = encodeURIComponent(`Job for ${currentSession.customerName}.\nItems: ${currentSession.garments.join(', ')}\nTotal: ₦${currentSession.totalCost}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+  };
+
+  const filledCount = Object.keys(activeMeasurements).length;
+  return (
+    <div className="flex flex-col relative pb-40 min-h-full bg-bg-light text-primary max-w-lg md:max-w-4xl mx-auto w-full">
+      
+      {currentSession && (
+        <div className="px-6 pt-8 pb-4">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-accent mb-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse"></span>
+                NOW RECORDING
+              </p>
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    className="font-serif text-2xl font-bold text-primary tracking-tight bg-transparent border-b-2 border-accent outline-none w-full max-w-[200px]"
+                    autoFocus
+                  />
+                  <button 
+                    onClick={() => {
+                      if (currentSession && editedName.trim()) {
+                        startSession({ ...currentSession, customerName: editedName.trim() });
+                      }
+                      setIsEditingName(false);
+                    }}
+                    className="text-[10px] font-bold text-accent uppercase tracking-widest"
+                  >Save</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditedName(currentSession?.customerName || ''); setIsEditingName(true); }}>
+                  <h2 className="font-serif text-3xl font-bold text-primary tracking-tight">{currentSession?.customerName} Session</h2>
+                  <svg className="w-4 h-4 text-accent/40 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => navigate('/')} 
+                className="text-[10px] font-bold text-text-muted hover:text-primary uppercase tracking-widest bg-bg-secondary/40 px-4 py-2 rounded-full border border-border-subtle shadow-sm active:scale-95 transition-colors"
+              >
+                Back
+              </button>
+              <button 
+                onClick={() => setShowHelp(true)}
+                className="w-10 h-10 rounded-full bg-bg-secondary/40 border border-border-subtle flex items-center justify-center text-accent hover:text-primary transition-all shadow-sm"
+              >
+                <span className="text-lg font-bold">?</span>
+              </button>
+              <button onClick={() => { if(window.confirm('Cancel current job?')) clearSession() }} className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-bg-secondary/40 px-4 py-2 rounded-full border border-border-subtle shadow-sm active:scale-95">
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          {/* ONE-TIME VOICE HINT BANNER */}
+          {showVoiceHint && (
+            <div className="mx-6 mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+              <span className="text-lg flex-shrink-0">🎙️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-amber-900">
+                  Say: <span className="font-black">&ldquo;Chest 42&rdquo;</span> or <span className="font-black">&ldquo;Waist 34&rdquo;</span>
+                </p>
+                <p className="text-[9px] text-amber-700 mt-0.5">Tap ⌨️ in the dock below to type instead</p>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem('voice_hint_dismissed', 'true');
+                  setShowVoiceHint(false);
+                }}
+                className="w-7 h-7 rounded-full bg-amber-200/60 flex items-center justify-center text-amber-800 font-bold text-sm flex-shrink-0 hover:bg-amber-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* GARMENT TABS */}
+          <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
+            {currentSession.garments.map((garment, idx) => {
+              const isActive = activeTabIdx === idx;
+              const tabFilledCount = Object.keys(measurementsByGarment[garment] || {}).length;
+              const tabTotalParts = garmentTemplates.find(t => t.name === garment)?.parts.length || 0;
+              const isComplete = tabFilledCount >= tabTotalParts;
+
+              return (
+                <div key={garment} className="relative group">
+                  <button 
+                    onClick={() => { setActiveTabIdx(idx); clearTranscript(); }}
+                    className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-full border transition-all duration-300 shadow-sm ${
+                      isActive 
+                        ? 'bg-primary border-primary text-white' 
+                        : 'bg-white border-border-subtle text-text-muted hover:border-accent/40'
+                    }`}
+                  >
+                    <span className="font-bold text-sm tracking-wide">{garment}</span>
+                    {isComplete && <span className="bg-accent w-2 h-2 rounded-full"></span>}
+                  </button>
+                  {isActive && currentSession.garments.length > 1 && (
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (window.confirm(`Remove ${garment} from this session?`)) {
+                           removeGarmentFromSession(garment);
+                           setActiveTabIdx(0);
+                        }
+                      }}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm hover:bg-rose-200 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* ADD GARMENT PILL */}
+            <button 
+              onClick={() => setIsAddingGarment(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-full border border-dashed border-border-subtle bg-white/50 text-text-muted hover:bg-white hover:text-primary hover:border-accent transition-all duration-300 shadow-sm"
+            >
+              <span className="font-bold text-sm tracking-wide">+ Add</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Measurement List (Floating Cards) */}
+      <div className="px-6 py-2">
+        
+        <div className="flex justify-between items-center mb-4 px-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Measurements ({unit})</span>
+          <span className="text-[9px] font-bold text-accent uppercase tracking-widest">{filledCount}/{activeParts.length} Filled</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {activeParts.map((part) => {
+            const value = activeMeasurements[part];
+            const isActive = numPadPart === part || targetedPart === part;
+            const isJustCaptured = lastCaptured === part;
+            
+            return (
+              <div key={part} className={isJustCaptured ? 'animate-capture-pulse' : ''}>
+                <MeasurementCard
+                  label={getLabel(part)}
+                  value={value || ''}
+                  isActive={isActive}
+                  onClick={() => {
+                    if (inputMode === 'voice') {
+                      if (targetedPart === part && isListening) {
+                        setTargetedPart(null);
+                        toggleListening();
+                      } else {
+                        setTargetedPart(part);
+                        if (!isListening) toggleListening();
+                      }
+                    } else {
+                      setNumPadPart(part);
+                    }
+                  }}
+                  unit={unit}
+                />
+              </div>
+            );
+          })}
+
+          {/* Add Custom Measurement Button */}
+          <button 
+            onClick={() => setIsAddingCustomPart(true)}
+            className="w-full h-16 flex items-center justify-center bg-transparent border-2 border-dashed border-border-subtle rounded-[24px] hover:border-accent hover:text-accent transition-all duration-300 text-text-muted"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-widest">+ Add Custom Measurement</span>
+          </button>
+
+        </div>
+      </div>
+
+      {/* Sleek Dynamic Input Dock Controls */}
+      <div className="fixed bottom-[96px] left-0 right-0 z-50 px-6 flex flex-col gap-3 pointer-events-none transition-all duration-500">
+        
+        {/* Floating Subtitle / Ticker ribbon */}
+        {lastTranscript && (
+          <div className={`mx-auto w-full max-w-[450px] rounded-2xl px-4 py-3 text-center text-xs font-medium shadow-[0_8px_30px_rgba(0,0,0,0.08)] border pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+            noMatchHint 
+              ? 'bg-amber-50 border-amber-200 text-amber-900' 
+              : 'bg-white/95 backdrop-blur-md text-primary border-border-subtle'
+          }`}>
+            <span className={`text-[9px] font-bold uppercase tracking-widest block mb-0.5 ${
+              noMatchHint ? 'text-amber-800' : 'text-accent'
+            }`}>
+              {noMatchHint ? '⚠️ No Match Found' : 'Transcribed Voice:'}
+            </span>
+            <p className="italic font-sans">"{lastTranscript}"</p>
+            {noMatchHint && (
+              <p className="text-[9px] text-amber-700/80 mt-1 font-semibold">Try: "Waist 32" or tap a card to speak numbers directly.</p>
+            )}
+          </div>
+        )}
+
+        {/* Voice Quota Warning Toast */}
+        {(voiceState === 'warning' || voiceState === 'urgent') && !isListening && (
+          <div className={`mx-auto w-full max-w-[450px] rounded-2xl px-4 py-3 text-center text-xs font-medium text-white shadow-lg pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+            voiceState === 'urgent'
+              ? 'bg-orange-600/95 border border-orange-500/20'
+              : 'bg-amber-500/95 border border-amber-400/20'
+          }`}>
+            <span className="text-[9px] font-bold text-white/70 uppercase tracking-widest block mb-0.5">
+              {voiceState === 'urgent' ? '⚠️ Almost Out of Voice' : '🎙️ Voice Running Low'}
+            </span>
+            <p className="font-semibold">{formatSeconds(voiceQuota.remaining_seconds)} remaining this month</p>
+            <p className="text-[9px] text-white/60 mt-0.5">Manual keypad is always free ✏️</p>
+          </div>
+        )}
+
+        {/* 🎙️ Tappable Voice Usage Pill — always visible in voice mode */}
+        {inputMode === 'voice' && !voiceQuota.is_admin && (
+          <div className="relative w-full max-w-[450px] mx-auto flex justify-end pointer-events-auto">
+            <button
+              onClick={() => setShowQuotaInfo(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide transition-all duration-200 ${
+                voiceState === 'exceeded'
+                  ? 'bg-primary/20 text-text-muted'
+                  : voiceState === 'urgent'
+                  ? 'bg-orange-100 text-orange-600'
+                  : voiceState === 'warning'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-white/80 text-text-muted hover:text-primary'
+              } backdrop-blur-sm shadow-sm border border-border-subtle`}
+            >
+              <span>🎙️</span>
+              <span>
+                {formatSeconds(voiceQuota.used_seconds)} / {Math.floor(voiceQuota.limit_seconds / 60)}m
+              </span>
+            </button>
+
+            {/* Tooltip popover — appears when pill is tapped */}
+            {showQuotaInfo && (
+              <>
+                {/* Tap-outside to dismiss */}
+                <div
+                  className="fixed inset-0 z-[60]"
+                  onClick={() => setShowQuotaInfo(false)}
+                />
+                <div className="absolute bottom-full right-0 mb-2 z-[70] w-64 bg-white text-primary border border-border-subtle rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="text-[9px] font-bold text-accent uppercase tracking-widest mb-2">Voice Quota</div>
+                  <p className="text-sm leading-relaxed font-sans">
+                    You've used{' '}
+                    <span className={`font-bold ${
+                      voiceState === 'exceeded' ? 'text-rose-500'
+                      : voiceState === 'urgent' ? 'text-orange-600'
+                      : voiceState === 'warning' ? 'text-amber-600'
+                      : 'text-accent'
+                    }`}>
+                      {formatSeconds(voiceQuota.used_seconds)}
+                    </span>{' '}
+                    of your{' '}
+                    <span className="font-bold">
+                      {Math.floor(voiceQuota.limit_seconds / 60)} min
+                    </span>{' '}
+                    free monthly voice quota.{' '}
+                    {voiceQuota.remaining_seconds > 0 ? (
+                      <>
+                        You have{' '}
+                        <span className="font-bold">
+                          {formatSeconds(voiceQuota.remaining_seconds)}
+                        </span>{' '}
+                        remaining.
+                      </>
+                    ) : (
+                      <span className="text-rose-500 font-bold block mt-1">Quota exceeded. Using manual input.</span>
+                    )}
+                  </p>
+                  {voiceQuota.resets_on && (
+                    <p className="text-[10px] text-text-muted mt-2 font-medium">
+                      Resets {voiceQuota.resets_on} · Manual keypad always free ✏️
+                    </p>
+                  )}
+                  {/* Downward caret */}
+                  <div className="absolute -bottom-1.5 right-5 w-3 h-3 bg-white rotate-45 rounded-sm border-r border-b border-border-subtle" />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 🎙️ Unified Floating Control Bar (Pill-shaped, at the bottom) */}
+      <div className="fixed bottom-6 left-0 right-0 z-50 px-6 pointer-events-none animate-in slide-in-from-bottom-4 duration-300">
+        <div className="w-full max-w-[450px] mx-auto bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.12)] border border-border-subtle px-4 py-2.5 flex items-center justify-between gap-3 pointer-events-auto">
+          {/* Left: Voice Mode Toggle / Mic Trigger Button */}
+          <button
+            onClick={() => {
+              if (voiceState === 'exceeded') {
+                setShowQuotaSheet(true);
+                return;
+              }
+              if (inputMode !== 'voice') {
+                setInputMode('voice');
+                setNumPadPart(null);
+              }
+              toggleListening();
+            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 border ${
+              isListening 
+                ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/20' 
+                : 'bg-[#FAF7F2] border-border-subtle text-primary hover:bg-[#FAF7F2]/80'
+            }`}
+            title={isListening ? "Stop Recording" : "Start Voice Recording"}
+          >
+            {isListening ? (
+              <span className="flex gap-1 items-center">
+                <span className="w-1 bg-white h-3 rounded-full animate-pulse"></span>
+                <span className="w-1 bg-white h-4 rounded-full animate-pulse [animation-delay:0.15s]"></span>
+                <span className="w-1 bg-white h-3 rounded-full animate-pulse [animation-delay:0.3s]"></span>
+              </span>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            )}
+          </button>
+          
+          {/* Center: Status Indicator Text */}
+          <div 
+            onClick={() => {
+              if (inputMode === 'voice') {
+                setInputMode('manual');
+                setTargetedPart(null);
+              } else {
+                setInputMode('voice');
+              }
+            }}
+            className="flex-1 text-center text-xs font-semibold font-sans tracking-wide text-text-muted cursor-pointer hover:text-primary transition-colors flex items-center justify-center gap-2 select-none"
+          >
+            {isListening ? (
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping"></span>
+                <span className="text-rose-600 font-bold uppercase tracking-wider text-[10px] tabular-nums">
+                  Recording 0:{String(recordingSeconds).padStart(2, '0')}
+                </span>
+              </div>
+            ) : isTranscribing ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0s]"></span>
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.15s]"></span>
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.3s]"></span>
+                </div>
+                <span className="text-[10px] font-bold text-accent uppercase tracking-widest">AI Translating...</span>
+              </div>
+            ) : inputMode === 'manual' ? (
+              <span className="text-text-muted">Keypad Input Active</span>
+            ) : (
+              <span className="text-text-muted flex items-center gap-1.5">
+                🎙️ Voice Portal Active <span className="text-[9px] bg-bg-secondary border border-border-subtle rounded px-1.5 py-0.5 font-bold uppercase">Tap ⌨️</span>
+              </span>
+            )}
+          </div>
+
+          {/* Right: Save Session Button */}
+          <button
+            onClick={() => setIsSaving(true)}
+            className="bg-primary hover:bg-black text-white px-6 h-10 rounded-full font-bold text-[10px] tracking-wider uppercase active:scale-95 transition-transform shadow-md"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* Save Modal (Bottom Sheet / Centered Overlay) */}
+      {isSaving && (
+        <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center">
+          <div className="absolute inset-0 bg-primary/45 backdrop-blur-sm" onClick={() => !isSaved && setIsSaving(false)}></div>
+          <div className="bg-bg-light w-full lg:max-w-lg lg:rounded-3xl lg:mb-8 rounded-t-[32px] p-8 flex flex-col gap-6 animate-bottom-sheet z-[110] shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar pb-20 border-t border-accent/15">
+            <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto lg:hidden"></div>
+            
+            <div className="text-center">
+              <h3 className="font-serif text-3xl font-bold text-primary">Finalize Session</h3>
+              <p className="text-[11px] font-bold text-accent uppercase tracking-widest mt-2">{currentSession?.customerName}</p>
+            </div>
+
+            {/* Session Summary Card */}
+            <div className="bg-bg-secondary/40 rounded-[24px] p-5 space-y-3 border border-border-subtle shadow-inner">
+              <p className="text-[9px] font-bold text-text-muted uppercase tracking-widest mb-3">Atelier Overview</p>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-text-muted font-medium">Client</span>
+                <span className="text-sm font-bold text-primary font-serif">{currentSession?.customerName}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-text-muted font-medium">Garments</span>
+                <span className="text-sm font-bold text-primary">{currentSession?.garments.join(', ')}</span>
+              </div>
+
+              {currentSession?.garments.map(garment => {
+                const count = Object.keys(measurementsByGarment[garment] || {}).length;
+                const total = garmentTemplates.find(t => t.name === garment)?.parts.length || 0;
+                return (
+                  <div key={garment} className="flex justify-between items-center">
+                    <span className="text-sm text-text-muted font-medium">{garment}</span>
+                    <span className={`text-sm font-bold ${count >= total ? 'text-emerald-600' : 'text-accent'}`}>
+                      {count}/{total} fields filled
+                    </span>
+                  </div>
+                );
+              })}
+
+              {(currentSession?.totalCost ?? 0) > 0 && (
+                <div className="flex justify-between items-center pt-2 border-t border-border-subtle">
+                  <span className="text-sm text-text-muted font-medium">Total Cost</span>
+                  <span className="text-sm font-bold text-primary font-sans">₦{(currentSession?.totalCost ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+              
+              {(currentSession?.amountPaid ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-muted font-medium">Deposit Paid</span>
+                  <span className="text-sm font-bold text-emerald-600 font-sans">₦{(currentSession?.amountPaid ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Style Reference Photo Uploads */}
+            <div className="space-y-3 mt-2">
+              <span className="text-[10px] font-bold text-accent uppercase tracking-[0.15em] block">Style References (Max 3)</span>
+              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                {stylePhotos.map((url, idx) => (
+                  <div key={idx} className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 border border-border-subtle relative group shadow-sm bg-bg-secondary/20">
+                    <img src={getFabricThumbnailUrl(url, 200, 200)} alt="Style" className="w-full h-full object-cover" loading="lazy" />
+                    <button onClick={() => setStylePhotos(p => p.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-primary/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                  </div>
+                ))}
+                {stylePhotos.length < 3 && (
+                  <div onClick={() => !isUploading && styleInputRef.current?.click()} className={`w-24 h-24 bg-bg-secondary/40 rounded-2xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center flex-shrink-0 cursor-pointer hover:border-accent/40 hover:bg-bg-secondary/60 transition-colors ${isUploading === 'style' ? 'opacity-70 pointer-events-none' : ''}`}>
+                    {isUploading === 'style' ? (
+                      <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span className="text-2xl opacity-60">📸</span>
+                        <span className="text-[8px] font-bold text-text-muted uppercase mt-1">Add Style</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                <input type="file" ref={styleInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, 'style')} />
+              </div>
+            </div>
+
+            {/* Fabric Samples Photo Uploads */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-bold text-accent uppercase tracking-[0.15em] block">Fabric Samples (Max 3)</span>
+              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                {clothPhotos.map((url, idx) => (
+                  <div key={idx} className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 border border-border-subtle relative group shadow-sm bg-bg-secondary/20">
+                    <img src={getFabricThumbnailUrl(url, 200, 200)} alt="Fabric" className="w-full h-full object-cover" loading="lazy" />
+                    <button onClick={() => setClothPhotos(p => p.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-primary/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                  </div>
+                ))}
+                {clothPhotos.length < 3 && (
+                  <div onClick={() => !isUploading && clothInputRef.current?.click()} className={`w-24 h-24 bg-bg-secondary/40 rounded-2xl border-2 border-dashed border-border-subtle flex flex-col items-center justify-center flex-shrink-0 cursor-pointer hover:border-accent/40 hover:bg-bg-secondary/60 transition-colors ${isUploading === 'cloth' ? 'opacity-70 pointer-events-none' : ''}`}>
+                    {isUploading === 'cloth' ? (
+                      <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span className="text-2xl opacity-60">🧵</span>
+                        <span className="text-[8px] font-bold text-text-muted uppercase mt-1">Add Fabric</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                <input type="file" ref={clothInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, 'cloth')} />
+              </div>
+            </div>
+
+            {/* Upload Progress Indicator */}
+            {isUploading && (
+              <div className="bg-bg-secondary/60 border border-accent/25 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between text-[9px] font-bold tracking-wider">
+                  <span className="text-primary uppercase flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full border-2 border-accent border-t-transparent animate-spin inline-block" />
+                    {uploadProgressText || 'Uploading image...'}
+                  </span>
+                  <span className="text-accent font-mono">{uploadProgressPercent}%</span>
+                </div>
+                <div className="w-full bg-border-subtle/40 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-accent h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${uploadProgressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Upload Error & Retry Banner */}
+            {uploadError && !isUploading && (
+              <div className="bg-red-50 border border-red-200/80 rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-500 font-bold text-xs mt-0.5">⚠️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-red-800">
+                      {uploadError.type === 'cloth' ? 'Fabric' : 'Style'} Photo Failed
+                    </p>
+                    <p className="text-[9px] text-red-600 break-words">{uploadError.msg}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => executePhotoUpload(uploadError.file, uploadError.type)}
+                    className="h-7 px-3 bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg shadow-sm active:scale-95 transition-all"
+                  >
+                    ↻ Retry Upload
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadError(null)}
+                    className="text-[9px] text-text-muted hover:text-primary font-bold uppercase tracking-wider px-2 py-1"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Main Action Button */}
+            <button 
+              onClick={handleSaveToBackend} 
+              disabled={isSaved} 
+              className={`mt-4 w-full h-16 rounded-full font-bold text-sm tracking-widest uppercase transition-all shadow-lg flex items-center justify-center border ${
+                !isSaved 
+                  ? 'bg-primary text-white hover:bg-primary/95 border-primary shadow-primary/10' 
+                  : 'bg-bg-secondary/80 text-accent border-accent/25 shadow-none'
+              }`}
+            >
+              {isSaved ? '✓ ARCHIVED IN ATELIER' : 'ARCHIVE JOB'}
+            </button>
+
+            {isSaved && (
+              <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-top-2 duration-500">
+                <p className="text-center text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                  Securely Logged — Share with Client:
+                </p>
+
+                {/* Share Card Button */}
+                <button
+                  onClick={async () => {
+                    if (!currentSession) return;
+                    setIsSharing(true);
+                    try {
+                      await shareMeasurementCard({
+                        customerName: currentSession.customerName,
+                        shopName,
+                        garments: currentSession.garments,
+                        measurementsByGarment,
+                        getLabel,
+                        unit,
+                        deliveryDate: currentSession.deadline,
+                        totalCost: currentSession.totalCost,
+                        amountPaid: currentSession.amountPaid,
+                      });
+                    } catch (e) { /* Share canceled */ }
+                    finally { setIsSharing(false); }
+                  }}
+                  disabled={isSharing}
+                  className="w-full h-14 bg-accent text-primary rounded-full font-bold text-[11px] tracking-widest uppercase flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-transform"
+                >
+                  {isSharing ? (
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                  )}
+                  {isSharing ? 'Generating Card...' : 'Send Measurement Card'}
+                </button>
+
+                {/* Google Calendar Link */}
+                <a
+                  href={getGoogleCalendarUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-14 bg-white border border-border-subtle text-primary rounded-full font-bold text-[11px] tracking-widest uppercase flex items-center justify-center gap-3 shadow-sm hover:border-accent transition-all active:scale-[0.98] text-center"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  Add to Google Calendar
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* NumPad manual popup overlay */}
+      {numPadPart && (
+        <NumPad
+          activePart={numPadPart}
+          currentValue={activeMeasurements[numPadPart]}
+          unit={unit}
+          onConfirm={handleNumPadConfirm}
+          onNext={handleNumPadNext}
+          onClear={handleNumPadClear}
+          onClose={() => setNumPadPart(null)}
+        />
+      )}
+
+      {/* Voice Quota Exceeded Sheet */}
+      {showQuotaSheet && (
+        <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center">
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setShowQuotaSheet(false)}></div>
+          <div className="bg-bg-light w-full lg:max-w-md lg:rounded-3xl lg:mb-8 rounded-t-[32px] p-8 flex flex-col gap-4 animate-bottom-sheet z-[110] shadow-2xl pb-12 border-t border-accent/15">
+            <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto lg:hidden"></div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-bg-secondary/60 rounded-full flex items-center justify-center mx-auto mb-4 border border-border-subtle text-2xl">
+                🔒
+              </div>
+              <h3 className="font-serif text-2xl font-bold text-primary">Voice Limit Reached</h3>
+              <p className="text-sm text-text-muted mt-2 leading-relaxed">
+                You've used all 8 minutes of your free monthly voice quota.
+              </p>
+              {voiceQuota.resets_on && (
+                <p className="text-[10px] font-bold text-accent uppercase tracking-widest mt-3">
+                  Resets on {voiceQuota.resets_on}
+                </p>
+              )}
+            </div>
+            <div className="bg-bg-secondary/40 rounded-2xl p-4 text-center border border-border-subtle">
+              <p className="text-sm font-bold text-primary">✏️ Manual keypad is free & unlimited</p>
+              <p className="text-xs text-text-muted mt-1">Tap any measurement row to enter numbers manually</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowQuotaSheet(false);
+                setInputMode('manual');
+              }}
+              className="w-full h-14 bg-primary hover:bg-primary/95 text-white rounded-full font-bold uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all"
+            >
+              Switch to Manual Keypad
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Garment Modal */}
+      {isAddingGarment && currentSession && (
+        <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center">
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setIsAddingGarment(false)}></div>
+          <div className="bg-bg-light w-full lg:max-w-md lg:rounded-3xl lg:mb-8 rounded-t-[32px] p-8 flex flex-col gap-6 animate-bottom-sheet z-[110] shadow-2xl pb-12 border-t border-accent/15">
+            <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto lg:hidden"></div>
+            <div className="text-center">
+              <h3 className="font-serif text-2xl font-bold text-primary">Add Garment</h3>
+              <p className="text-[11px] font-bold text-accent uppercase tracking-widest mt-2">To {currentSession.customerName}'s Job</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              {garmentTemplates
+                .filter(t => t.recommendedFor.includes(currentSession.gender || 'male'))
+                .map(t => t.name)
+                .filter(g => !currentSession.garments.includes(g))
+                .map(garment => (
+                  <button
+                    key={garment}
+                    onClick={() => {
+                      addGarmentToSession(garment);
+                      setActiveTabIdx(currentSession.garments.length);
+                      setIsAddingGarment(false);
+                    }}
+                    className="h-14 flex items-center justify-center bg-white border border-border-subtle rounded-xl shadow-sm hover:border-accent hover:text-primary transition-all duration-300 font-bold text-sm text-text-muted"
+                  >
+                    + {garment}
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Custom Part Modal */}
+      {isAddingCustomPart && (
+        <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center">
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setIsAddingCustomPart(false)}></div>
+          <div className="bg-bg-light w-full lg:max-w-md lg:rounded-3xl lg:mb-8 rounded-t-[32px] p-8 flex flex-col gap-6 animate-bottom-sheet z-[110] shadow-2xl pb-12 border-t border-accent/15">
+            <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto lg:hidden"></div>
+            <div className="text-center">
+              <h3 className="font-serif text-2xl font-bold text-primary">Custom Field</h3>
+              <p className="text-[11px] font-bold text-accent uppercase tracking-widest mt-2">Add a custom body part measurement</p>
+            </div>
+            
+            <div className="mt-2 space-y-4">
+              <input 
+                type="text" 
+                value={newCustomPart}
+                onChange={e => setNewCustomPart(e.target.value)}
+                placeholder="e.g., Elbow Width, Cuff..."
+                className="w-full h-14 bg-bg-secondary/45 rounded-xl border border-border-subtle px-4 text-lg font-medium outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all text-primary"
+                autoFocus
+              />
+              <button
+                disabled={!newCustomPart.trim()}
+                onClick={() => {
+                  const safePart = newCustomPart.trim().toLowerCase().replace(/\s+/g, '_');
+                  addCustomPart(safePart);
+                  setNewCustomPart('');
+                  setIsAddingCustomPart(false);
+                }}
+                className="w-full h-14 bg-primary text-white rounded-xl font-bold uppercase tracking-widest disabled:opacity-50 disabled:bg-primary/20 transition-all shadow-md"
+              >
+                Add Field
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Help Overlay */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-primary/80 backdrop-blur-md" onClick={() => setShowHelp(false)}></div>
+          <div className="bg-bg-light w-full max-w-sm rounded-[40px] p-8 relative animate-in zoom-in-95 duration-300 shadow-2xl border border-accent/10">
+            <h3 className="font-serif text-3xl font-bold text-primary mb-2">Speak to Atelier</h3>
+            <p className="text-text-muted text-sm mb-8 font-medium font-sans">Natural voice dictation guides your hands.</p>
+            
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-bg-secondary text-accent flex items-center justify-center flex-shrink-0 font-bold border border-border-subtle">1</div>
+                <div>
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">Standard Capture</p>
+                  <p className="text-primary font-bold font-sans">"Waist 34", "Shoulder 20"</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-bg-secondary text-accent flex items-center justify-center flex-shrink-0 font-bold border border-border-subtle">2</div>
+                <div>
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">Navigation Commands</p>
+                  <p className="text-primary font-bold font-sans">"Next", "Clear Waist", "Finish"</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-bg-secondary text-accent flex items-center justify-center flex-shrink-0 font-bold border border-border-subtle">3</div>
+                <div>
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">Inline Custom addition</p>
+                  <p className="text-primary font-bold font-sans">"Add Neck Drop 5"</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowHelp(false)}
+              className="mt-10 w-full h-14 bg-primary text-white rounded-full font-bold uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Celebration Overlay */}
+      {isSaved && (
+        <div className="fixed inset-0 z-[300] bg-primary flex flex-col items-center justify-center p-10 animate-in fade-in duration-500">
+          <div className="relative mb-10">
+            <div className="absolute inset-0 bg-accent rounded-full blur-3xl opacity-20 animate-pulse"></div>
+            <div className="w-24 h-24 rounded-full border-4 border-accent flex items-center justify-center text-accent relative animate-in zoom-in duration-700">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          </div>
+          <h2 className="font-serif text-4xl font-bold text-white mb-2 text-center">Atelier Success</h2>
+          <p className="text-accent text-[11px] font-bold uppercase tracking-[0.3em] text-center mb-8">
+            {currentSession?.customerName}'s Data Secured
+          </p>
+          <div className="w-40 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-accent animate-progress-cycle"></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
